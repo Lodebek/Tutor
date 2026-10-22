@@ -9,7 +9,7 @@
   <title>Multiplication Gauntlet</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=1.8" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -19,7 +19,7 @@
         <div class="brand-title">
           <span class="bolt-icon">⚡</span>
           <h1>GAUNTLET</h1>
-          <span id="app-version" class="version-badge" title="Tap to force update">↻</span>
+          <span id="app-version" class="version-badge" title="Tap to force update">v1.8 ↻</span>
         </div>
         <div class="header-actions">
           <button id="btn-grid" class="icon-btn" type="button" aria-label="144 Mastery Grid" title="12×12 Mastery Grid">
@@ -178,7 +178,10 @@
             <!-- Voice Final Answer Confirmation Loop Banner -->
             <div id="voice-confirm-box" class="voice-confirm-box hidden">
               <div class="voice-confirm-top">
-                <span id="voice-confirm-prompt" class="voice-confirm-prompt">🎙️ Is your final answer 20?</span>
+                <span class="voice-confirm-title-wrap">
+                  <span class="mic-dot"></span>
+                  <span id="voice-confirm-prompt" class="voice-confirm-prompt">🎙️ Is your final answer 20?</span>
+                </span>
                 <span id="voice-confirm-timer" class="voice-confirm-timer">10.0s</span>
               </div>
               <div id="voice-confirm-sub" class="voice-confirm-sub">
@@ -191,10 +194,10 @@
             </div>
 
             <!-- Live Microphone Status & Transcript -->
-            <div id="voice-bar" class="voice-bar listening">
+            <div id="voice-bar" class="voice-bar">
               <button id="btn-mic-toggle" class="mic-indicator-btn" type="button" title="Toggle Microphone">
                 <span class="mic-dot"></span>
-                <span id="mic-status-label">Listening for number...</span>
+                <span id="mic-status-label">Starting microphone...</span>
               </button>
               <div id="voice-transcript" class="voice-transcript">Say the answer out loud</div>
             </div>
@@ -342,7 +345,7 @@
               <strong>Speak Compliments on Right Answers</strong>
               <p class="setting-sub">Vary voice praise when an answer is right</p>
             </div>
-            <input type="checkbox" id="setting-speak-praise" class="toggle-checkbox" checked />
+            <input type="checkbox" id="setting-speak-praise" class="toggle-checkbox" />
           </div>
 
           <div class="setting-row">
@@ -439,6 +442,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=1.8"></script>
 </body>
 </html>
