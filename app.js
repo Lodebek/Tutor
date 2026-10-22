@@ -1135,18 +1135,28 @@ function bindEvents() {
 
   // Force Reload / Cache Buster badge on tap
   document.getElementById('app-version').addEventListener('click', async () => {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const r of regs) await r.unregister();
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) await r.unregister();
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        for (const k of keys) await caches.delete(k);
+      }
+    } catch {
+      // Ignore
     }
-    window.location.reload();
+    window.location.href = `${window.location.pathname}?t=${Date.now()}`;
   });
 }
 
 // Register Network-First Service Worker so refreshing the phone ALWAYS gets the newest push
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=1.1').then((reg) => {
+      reg.update().catch(() => {});
+    }).catch(() => {});
   });
 }
 
