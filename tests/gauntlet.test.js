@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   APP_VERSION,
+  CONFIRM_TIMEOUT_MS,
   WORD_TO_NUM,
   createInitialStats,
   syncCommutativeStats,
@@ -12,6 +13,8 @@ const {
   stripQuestionEcho,
   extractSpokenNumbers,
   getWrongAnswerDebounceMs,
+  getVoiceCaptureSettleMs,
+  parseVoiceConfirmationResponse,
   advanceRetryQueueOnHit,
   scheduleRetryOnMiss,
   getProximityFeedback,
@@ -94,15 +97,12 @@ describe('3. Paused Compound Numbers & Child-Friendly Debounce', () => {
   });
 
   it('uses extended debounce windows when spoken number is a decade/hundred prefix ("fifty..." on the way to "fifty six")', () => {
-    // Normal wrong number (e.g. 48 when target is 56)
     assert.equal(getWrongAnswerDebounceMs(48, 56, true), 1000);
     assert.equal(getWrongAnswerDebounceMs(48, 56, false), 1500);
 
-    // Decade prefix "50" when target is 56 (or even when child is about to say "fifty four")
     assert.equal(getWrongAnswerDebounceMs(50, 56, true), 1900);
     assert.equal(getWrongAnswerDebounceMs(50, 56, false), 2300);
 
-    // Hundred prefix "100" when target is 144
     assert.equal(getWrongAnswerDebounceMs(100, 144, true), 1900);
     assert.equal(getWrongAnswerDebounceMs(100, 144, false), 2300);
   });
@@ -156,21 +156,18 @@ describe('5. 1 → 3 → 7 Expanding Spacing Queue & Explicit Ladder Reset', () 
     ];
     const missedCard = { id: '7x8', a: 7, b: 8, product: 56, targetAnswer: 56, isRetry: false, retryStage: 0 };
 
-    // Initial miss -> schedules stage 1 after 1 card (index 1)
     const missRes = scheduleRetryOnMiss(queue, missedCard, 'expanding');
     assert.equal(missRes.cleared, false);
     assert.equal(missRes.wasReset, false);
     assert.equal(queue[1].id, '7x8');
     assert.equal(queue[1].retryStage, 1);
 
-    // Pull stage 1 card and pass it -> schedules stage 2 after 3 cards
     const stage1Card = queue.splice(1, 1)[0];
     const clearedAfter1 = advanceRetryQueueOnHit(queue, stage1Card, 'expanding');
     assert.equal(clearedAfter1, false);
     const stage2Card = queue.find(c => c.id === '7x8');
     assert.equal(stage2Card.retryStage, 2);
 
-    // Pull stage 2 card and pass it -> schedules stage 3 after 7 cards (clamped to queue end)
     const idx2 = queue.findIndex(c => c.id === '7x8');
     const pulledStage2 = queue.splice(idx2, 1)[0];
     const clearedAfter2 = advanceRetryQueueOnHit(queue, pulledStage2, 'expanding');
@@ -178,7 +175,6 @@ describe('5. 1 → 3 → 7 Expanding Spacing Queue & Explicit Ladder Reset', () 
     const stage3Card = queue.find(c => c.id === '7x8');
     assert.equal(stage3Card.retryStage, 3);
 
-    // Pull stage 3 card and pass it -> finally cleared!
     const idx3 = queue.findIndex(c => c.id === '7x8');
     const pulledStage3 = queue.splice(idx3, 1)[0];
     const clearedAfter3 = advanceRetryQueueOnHit(queue, pulledStage3, 'expanding');
@@ -200,24 +196,80 @@ describe('6. Proximity Coaching & Mental Math Tricks', () => {
   const card3x9 = { a: 3, b: 9, product: 27, targetAnswer: 27, qType: 'product' };
 
   it('classifies answers off by <= 1 factor step as close-tier ("So close! Nice try!")', () => {
-    const res = getProximityFeedback(card3x9, 24, 'voice'); // diff = 3 <= 9
+    const res = getProximityFeedback(card3x9, 24, 'voice');
     assert.equal(res.tierClass, 'close-tier');
   });
 
   it('classifies answers off by <= 2x factor step as mid-tier ("Come on, you can do better!")', () => {
-    const res = getProximityFeedback(card3x9, 15, 'voice'); // diff = 12 (between 9 and 18)
+    const res = getProximityFeedback(card3x9, 15, 'voice');
     assert.equal(res.tierClass, 'mid-tier');
   });
 
   it('classifies answers off by > 2x factor step as far-tier', () => {
-    const res = getProximityFeedback(card3x9, 50, 'voice'); // diff = 23 > 18
+    const res = getProximityFeedback(card3x9, 50, 'voice');
     assert.equal(res.tierClass, 'far-tier');
   });
 
   it('returns mental math decomposition tricks and single-source APP_VERSION', () => {
-    assert.equal(APP_VERSION, 'v1.5');
+    assert.equal(APP_VERSION, 'v1.6');
     const trick = getMentalMathTrick(7, 8);
     assert.ok(trick.text.length > 0);
     assert.ok(trick.speech.length > 0);
+  });
+});
+
+describe('7. Voice Final-Answer Confirmation Loop ("Is your final answer 20?")', () => {
+  const card4x5 = { a: 4, b: 5, product: 20, targetAnswer: 20, qType: 'product' };
+
+  it('has a 10-second (10000ms) default confirmation timeout before auto-submitting best guess', () => {
+    assert.equal(CONFIRM_TIMEOUT_MS, 10000);
+  });
+
+  it('confirms when student says "yes", "yeah", "yep", "final answer", or repeats the number "20" / "twenty"', () => {
+    assert.deepEqual(
+      parseVoiceConfirmationResponse('yes', 20, card4x5),
+      { action: 'confirm', value: 20 }
+    );
+    assert.deepEqual(
+      parseVoiceConfirmationResponse('yeah lock it in', 20, card4x5),
+      { action: 'confirm', value: 20 }
+    );
+    assert.deepEqual(
+      parseVoiceConfirmationResponse('twenty', 20, card4x5),
+      { action: 'confirm', value: 20 }
+    );
+    assert.deepEqual(
+      parseVoiceConfirmationResponse('20', 20, card4x5),
+      { action: 'confirm', value: 20 }
+    );
+  });
+
+  it('updates candidate number when student corrects a misheard number ("no, 56" or "fifty six")', () => {
+    const card7x8 = { a: 7, b: 8, product: 56, targetAnswer: 56, qType: 'product' };
+    assert.deepEqual(
+      parseVoiceConfirmationResponse('no fifty six', 50, card7x8),
+      { action: 'update_number', value: 56 }
+    );
+    assert.deepEqual(
+      parseVoiceConfirmationResponse('56', 50, card7x8),
+      { action: 'update_number', value: 56 }
+    );
+  });
+
+  it('cancels confirmation and resumes question when student says "no", "nope", "wait", or "cancel"', () => {
+    assert.deepEqual(
+      parseVoiceConfirmationResponse('no wait', 20, card4x5),
+      { action: 'cancel' }
+    );
+    assert.deepEqual(
+      parseVoiceConfirmationResponse('nope wrong', 20, card4x5),
+      { action: 'cancel' }
+    );
+  });
+
+  it('calculates appropriate voice capture settle times before speaking the confirmation prompt', () => {
+    assert.equal(getVoiceCaptureSettleMs(20, 20, true), 350);
+    assert.equal(getVoiceCaptureSettleMs(50, 56, true), 1150);
+    assert.equal(getVoiceCaptureSettleMs(50, 56, false), 1550);
   });
 });

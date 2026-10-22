@@ -175,6 +175,21 @@
               <div id="front-hint-box" class="front-hint-box hidden"></div>
             </div>
 
+            <!-- Voice Final Answer Confirmation Loop Banner -->
+            <div id="voice-confirm-box" class="voice-confirm-box hidden">
+              <div class="voice-confirm-top">
+                <span id="voice-confirm-prompt" class="voice-confirm-prompt">🎙️ Is your final answer 20?</span>
+                <span id="voice-confirm-timer" class="voice-confirm-timer">10.0s</span>
+              </div>
+              <div id="voice-confirm-sub" class="voice-confirm-sub">
+                Say "Yes", repeat "20", or say a new number
+              </div>
+              <div class="voice-confirm-actions">
+                <button id="btn-confirm-yes" class="confirm-yes-btn" type="button">✅ Yes (20)</button>
+                <button id="btn-confirm-no" class="confirm-no-btn" type="button">🔄 No, Change</button>
+              </div>
+            </div>
+
             <!-- Live Microphone Status & Transcript -->
             <div id="voice-bar" class="voice-bar listening">
               <button id="btn-mic-toggle" class="mic-indicator-btn" type="button" title="Toggle Microphone">
@@ -385,6 +400,14 @@
               <p class="setting-sub">Automatically listen for spoken numbers</p>
             </div>
             <input type="checkbox" id="setting-mic" class="toggle-checkbox" checked />
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Confirm Spoken Answer ("Final answer 20?")</strong>
+              <p class="setting-sub">Pauses timer &amp; confirms spoken number (10s auto-submit)</p>
+            </div>
+            <input type="checkbox" id="setting-confirm-voice" class="toggle-checkbox" checked />
           </div>
 
           <div class="setting-row">

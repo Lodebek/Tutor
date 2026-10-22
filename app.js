@@ -1,15 +1,17 @@
 /**
- * Multiplication Gauntlet v1.5 — Research-Backed Learning & Speed Engine
- * Fixes & Upgrades in v1.5:
- * 1. Removed homophones (to/too/for/won/free/ate/oh) from WORD_TO_NUM to prevent false answers on filler speech
- * 2. Word + digit question-echo stripping ("seven times eight is...", partial "seven times...")
- * 3. Child-friendly wrong-answer debounce + cross-segment compound number combining ("fifty... six" -> 56)
- * 4. Commutative fact mastery synchronization (mastering 7×8 credits 8×7 across all decks & 12×12 grid)
- * 5. TTS active-speaking poll + 250ms acoustic tail buffer before mic unlock
- * 6. Pure First-Try Speed tracking, explicit Expanding Ladder reset notice, centralized APP_VERSION, and unit test exports
+ * Multiplication Gauntlet v1.6 — Research-Backed Learning & Speed Engine
+ * Fixes & Upgrades in v1.6:
+ * 1. Voice Final-Answer Confirmation Loop: Pauses question timer as soon as a spoken number is heard,
+ *    asks "Is your final answer X?", accepts "Yes" / repeating X / saying a corrected number / "No",
+ *    and auto-submits X after a 10-second confirmation countdown if no further input is given.
+ * 2. Removed homophones (to/too/for/won/free/ate/oh) from WORD_TO_NUM to prevent false answers on filler speech.
+ * 3. Word + digit question-echo stripping ("seven times eight is...", partial "seven times...").
+ * 4. Commutative fact mastery synchronization (mastering 7×8 credits 8×7 across all decks & 12×12 grid).
+ * 5. TTS active-speaking poll + 250ms acoustic tail buffer before mic unlock.
  */
 
-const APP_VERSION = 'v1.5';
+const APP_VERSION = 'v1.6';
+const CONFIRM_TIMEOUT_MS = 10000;
 const STORAGE_KEY_STATS = 'gauntlet_144_stats_v1';
 const STORAGE_KEY_SETTINGS = 'gauntlet_settings_v2';
 
@@ -80,6 +82,7 @@ const defaultSettings = {
   speakTrick: false,
   showTwin: true,
   autoMic: true,
+  confirmVoice: true,
   speakQuestion: false,
   autoKeypad: true,
   keypadVisible: true,
@@ -407,6 +410,67 @@ function getWrongAnswerDebounceMs(spokenNum, targetAnswer, isFinalResult) {
   return isFinalResult ? 1000 : 1500;
 }
 
+/**
+ * Calculates the settle window before asking "Is your final answer X?" once a spoken number is heard.
+ * Note: The question countdown timer is immediately paused on the first spoken digit so the player
+ * loses zero time during this settle window.
+ */
+function getVoiceCaptureSettleMs(spokenNum, targetAnswer, isFinalResult) {
+  const isDecadeOrHundredPrefix =
+    spokenNum === 100 ||
+    (spokenNum >= 20 && spokenNum <= 90 && spokenNum % 10 === 0) ||
+    (spokenNum >= 110 && spokenNum <= 140 && spokenNum % 10 === 0);
+
+  if (isDecadeOrHundredPrefix && spokenNum !== targetAnswer) {
+    return isFinalResult ? 1150 : 1550;
+  }
+  if (spokenNum === targetAnswer) {
+    return isFinalResult ? 350 : 600;
+  }
+  return isFinalResult ? 650 : 1000;
+}
+
+/**
+ * Parses what the student says when asked "Is your final answer <candidateNum>?"
+ * Returns one of:
+ * - { action: 'confirm', value: candidateNum }  (said "yes"/"yep"/etc. or repeated candidateNum)
+ * - { action: 'update_number', value: newNum }  (said a different number to replace candidateNum, e.g. "no, 56" or "56")
+ * - { action: 'cancel' }                        (said "no"/"wait"/"cancel" with no replacement number)
+ * - { action: 'ignore' }                        (background noise / no actionable tokens)
+ */
+function parseVoiceConfirmationResponse(rawTranscript, candidateNum, currentCard) {
+  if (!rawTranscript || typeof rawTranscript !== 'string') {
+    return { action: 'ignore' };
+  }
+
+  const text = rawTranscript.toLowerCase().trim();
+  if (!text) return { action: 'ignore' };
+
+  const extractedNums = extractSpokenNumbers(text, currentCard);
+  const hasAffirmative = /\b(yes|yeah|yep|yup|ya|correct|right|sure|affirmative|final|lock|submit|ok|okay|uh\s*huh|that\s*is\s*it|thats\s*it|go)\b/i.test(text);
+  const hasNegative = /\b(no|nope|nah|wrong|wait|cancel|change|different|not|hold\s*on|try\s*again)\b/i.test(text);
+
+  if (extractedNums.length > 0) {
+    const lastNum = extractedNums[extractedNums.length - 1];
+    if (lastNum !== candidateNum) {
+      return { action: 'update_number', value: lastNum };
+    }
+    if (!hasNegative) {
+      return { action: 'confirm', value: candidateNum };
+    }
+  }
+
+  if (hasNegative) {
+    return { action: 'cancel' };
+  }
+
+  if (hasAffirmative) {
+    return { action: 'confirm', value: candidateNum };
+  }
+
+  return { action: 'ignore' };
+}
+
 /* ==========================================================================
    EXPANDING SPACING QUEUE PURE FUNCTIONS
    ========================================================================== */
@@ -676,6 +740,12 @@ if (typeof document !== 'undefined') {
   const state = {
     phase: 'LOBBY',
     echoUnlocked: false,
+    confirmUnlocked: false,
+    confirmCandidate: null,
+    confirmRemainingMs: CONFIRM_TIMEOUT_MS,
+    confirmStartTimeMs: 0,
+    confirmIntervalId: null,
+    firstSpokenElapsedMs: null,
     queue: [],
     currentCard: null,
     typedInput: '',
@@ -727,6 +797,12 @@ if (typeof document !== 'undefined') {
     slotRight: document.getElementById('slot-right'),
     frontTwinBadge: document.getElementById('front-twin-badge'),
     frontHintBox: document.getElementById('front-hint-box'),
+    voiceConfirmBox: document.getElementById('voice-confirm-box'),
+    voiceConfirmPrompt: document.getElementById('voice-confirm-prompt'),
+    voiceConfirmTimer: document.getElementById('voice-confirm-timer'),
+    voiceConfirmSub: document.getElementById('voice-confirm-sub'),
+    btnConfirmYes: document.getElementById('btn-confirm-yes'),
+    btnConfirmNo: document.getElementById('btn-confirm-no'),
     voiceBar: document.getElementById('voice-bar'),
     micStatusLabel: document.getElementById('mic-status-label'),
     voiceTranscript: document.getElementById('voice-transcript'),
@@ -752,6 +828,7 @@ if (typeof document !== 'undefined') {
     settingSpeakTrick: document.getElementById('setting-speak-trick'),
     settingShowTwin: document.getElementById('setting-show-twin'),
     settingMic: document.getElementById('setting-mic'),
+    settingConfirmVoice: document.getElementById('setting-confirm-voice'),
     settingSpeakQuestion: document.getElementById('setting-speak-question'),
     settingAutoKeypad: document.getElementById('setting-auto-keypad'),
     customFactorToggles: document.getElementById('custom-factor-toggles'),
@@ -918,6 +995,14 @@ if (typeof document !== 'undefined') {
     return selected;
   }
 
+  function isVoicePhaseActive() {
+    return (
+      state.phase === 'QUESTION' ||
+      (state.phase === 'CONFIRM_VOICE' && state.confirmUnlocked) ||
+      (state.phase === 'REVEAL' && state.echoUnlocked)
+    );
+  }
+
   function initSpeechRecognition() {
     if (!SpeechRecognitionAPI) {
       dom.micStatusLabel.textContent = 'Voice unavailable on this browser';
@@ -942,23 +1027,23 @@ if (typeof document !== 'undefined') {
 
     recognition.onresult = (event) => {
       if (!state.currentCard || isSpeakingTTS) return;
-      if (state.phase !== 'QUESTION' && state.phase !== 'REVEAL') return;
-      if (state.phase === 'REVEAL' && !state.echoUnlocked) return;
+      if (!isVoicePhaseActive()) return;
 
       const cardToken = state.cardResultCounter;
       let latestTranscript = '';
       let isFinalResult = false;
       const allCandidates = [];
 
-      // Also build combined primary transcript across segments in case of paused speech ("fifty" ... "six")
+      // Build combined primary transcript across segments in case of paused speech ("fifty" ... "six")
       const primarySegments = [];
       for (let i = 0; i < event.results.length; i++) {
         if (event.results[i][0]) {
           primarySegments.push(event.results[i][0].transcript.trim());
         }
       }
+      const fullPrimaryTranscript = primarySegments.join(' ').trim();
       const combinedCrossSegmentNumbers = extractSpokenNumbers(
-        primarySegments.join(' '),
+        fullPrimaryTranscript,
         state.currentCard
       );
       for (const num of combinedCrossSegmentNumbers) {
@@ -993,7 +1078,56 @@ if (typeof document !== 'undefined') {
         return;
       }
 
-      // CASE B: Normal Question Answering (QUESTION phase)
+      // CASE B: Voice Final-Answer Confirmation Loop (CONFIRM_VOICE phase)
+      if (state.phase === 'CONFIRM_VOICE') {
+        const decision = parseVoiceConfirmationResponse(
+          fullPrimaryTranscript || latestTranscript,
+          state.confirmCandidate,
+          state.currentCard
+        );
+
+        if (decision.action === 'confirm') {
+          clearTimeout(state.pendingWrongNumberTimerId);
+          submitConfirmedVoiceAnswer(state.confirmCandidate);
+          return;
+        }
+
+        if (decision.action === 'update_number') {
+          const newNum = decision.value;
+          const activeSlot = getActiveSlotElement();
+          activeSlot.textContent = String(newNum);
+          activeSlot.classList.add('filled');
+          if (dom.voiceConfirmSub) {
+            dom.voiceConfirmSub.textContent = `🎙️ Heard new number "${newNum}" — updating...`;
+          }
+          clearTimeout(state.pendingWrongNumberTimerId);
+          const settleMs = getVoiceCaptureSettleMs(newNum, target, isFinalResult);
+          state.pendingWrongNumberTimerId = setTimeout(() => {
+            if (state.phase === 'CONFIRM_VOICE' && state.cardResultCounter === cardToken) {
+              enterVoiceConfirmation(newNum, true);
+            }
+          }, settleMs);
+          return;
+        }
+
+        if (decision.action === 'cancel') {
+          clearTimeout(state.pendingWrongNumberTimerId);
+          // Brief 450ms settle in case child is saying "No, fifty six"
+          state.pendingWrongNumberTimerId = setTimeout(() => {
+            if (state.phase === 'CONFIRM_VOICE' && state.cardResultCounter === cardToken) {
+              cancelVoiceConfirmation();
+            }
+          }, 450);
+          return;
+        }
+
+        if (latestTranscript && dom.voiceConfirmSub) {
+          dom.voiceConfirmSub.textContent = `Heard "${latestTranscript}" — say "Yes", "${state.confirmCandidate}", or a new number`;
+        }
+        return;
+      }
+
+      // CASE C: Initial Question Answering (QUESTION phase)
       if (allCandidates.length === 0) {
         if (latestTranscript) {
           dom.voiceTranscript.textContent = `Heard "${latestTranscript}" (waiting for a number...)`;
@@ -1002,23 +1136,39 @@ if (typeof document !== 'undefined') {
       }
 
       const activeSlot = getActiveSlotElement();
+      const spokenNum = combinedCrossSegmentNumbers.length > 0
+        ? combinedCrossSegmentNumbers[combinedCrossSegmentNumbers.length - 1]
+        : allCandidates[allCandidates.length - 1];
 
-      // 1. Exact match -> accept immediately!
+      // Immediately pause the question countdown timer as soon as a spoken number is heard!
+      pauseQuestionTimer();
+
+      activeSlot.textContent = String(spokenNum);
+      activeSlot.classList.add('filled');
+
+      if (settings.confirmVoice) {
+        dom.voiceTranscript.textContent = `🎙️ Heard ${spokenNum} — pausing timer to confirm...`;
+        clearTimeout(state.pendingWrongNumberTimerId);
+        const settleMs = getVoiceCaptureSettleMs(spokenNum, target, isFinalResult);
+        state.pendingWrongNumberTimerId = setTimeout(() => {
+          if (state.phase === 'QUESTION' && state.cardResultCounter === cardToken) {
+            enterVoiceConfirmation(spokenNum, false);
+          }
+        }, settleMs);
+        return;
+      }
+
+      // Fallback when user disables Voice Confirmation in Settings:
       if (allCandidates.includes(target)) {
         clearTimeout(state.pendingWrongNumberTimerId);
         activeSlot.textContent = String(target);
         activeSlot.classList.add('filled');
         dom.voiceTranscript.textContent = `🎙️ Heard: ${target} ✓`;
-        handleCorrectAnswer();
+        handleCorrectAnswer(state.firstSpokenElapsedMs);
         return;
       }
 
-      // 2. Spoken number that does not match yet -> child-friendly debounce
-      const spokenNum = allCandidates[allCandidates.length - 1];
-      activeSlot.textContent = String(spokenNum);
-      activeSlot.classList.add('filled');
       dom.voiceTranscript.textContent = `🎙️ Heard number: ${spokenNum}`;
-
       clearTimeout(state.pendingWrongNumberTimerId);
       const delayMs = getWrongAnswerDebounceMs(spokenNum, target, isFinalResult);
       state.pendingWrongNumberTimerId = setTimeout(() => {
@@ -1043,7 +1193,7 @@ if (typeof document !== 'undefined') {
         !micPermissionDenied &&
         !isSpeakingTTS &&
         settings.autoMic &&
-        (state.phase === 'QUESTION' || (state.phase === 'REVEAL' && state.echoUnlocked));
+        isVoicePhaseActive();
 
       if (shouldKeepListening) {
         setTimeout(() => {
@@ -1051,7 +1201,7 @@ if (typeof document !== 'undefined') {
             !isRecognitionActive &&
             !isSpeakingTTS &&
             settings.autoMic &&
-            (state.phase === 'QUESTION' || (state.phase === 'REVEAL' && state.echoUnlocked))
+            isVoicePhaseActive()
           ) {
             startListeningSafely();
           }
@@ -1158,6 +1308,149 @@ if (typeof document !== 'undefined') {
     dom.keypadGrid.classList.toggle('locked', locked);
   }
 
+  function pauseQuestionTimer() {
+    clearInterval(state.timerIntervalId);
+    if (!state.firstSpokenElapsedMs && state.cardStartTimeMs > 0) {
+      state.firstSpokenElapsedMs = Math.max(200, performance.now() - state.cardStartTimeMs);
+    }
+    if (dom.timerStatusText) {
+      dom.timerStatusText.textContent = '⏸️ TIMER PAUSED — CONFIRM ANSWER';
+    }
+  }
+
+  /**
+   * Enters the Voice Confirmation Loop:
+   * - Stops the question countdown timer
+   * - Shows the confirmation banner ("🎙️ Is your final answer 20?")
+   * - Speaks "Is your final answer 20?"
+   * - Starts a 10-second confirmation timer that auto-submits the candidate if no response is given
+   */
+  function enterVoiceConfirmation(candidateNum, isUpdate = false) {
+    if (!state.currentCard) return;
+    clearAllTimers();
+    state.cardResultCounter++;
+    state.phase = 'CONFIRM_VOICE';
+    state.confirmCandidate = candidateNum;
+    state.confirmUnlocked = false;
+    state.confirmRemainingMs = CONFIRM_TIMEOUT_MS;
+
+    const confirmToken = state.cardResultCounter;
+    const activeSlot = getActiveSlotElement();
+    activeSlot.textContent = String(candidateNum);
+    activeSlot.classList.add('filled');
+
+    if (dom.voiceConfirmBox) {
+      dom.voiceConfirmBox.classList.remove('hidden');
+      dom.voiceConfirmPrompt.textContent = `🎙️ Final answer: ${candidateNum}?`;
+      dom.voiceConfirmTimer.textContent = `${(CONFIRM_TIMEOUT_MS / 1000).toFixed(1)}s`;
+      dom.voiceConfirmSub.textContent = `Say "Yes", repeat "${candidateNum}", or say a different number`;
+      dom.btnConfirmYes.textContent = `✅ Yes (${candidateNum})`;
+    }
+    dom.voiceBar.classList.add('hidden');
+
+    if (dom.timerStatusText) {
+      dom.timerStatusText.textContent = '⏸️ TIMER STOPPED — CONFIRM FINAL ANSWER (10s)';
+    }
+    renderTimerUI(CONFIRM_TIMEOUT_MS, CONFIRM_TIMEOUT_MS);
+
+    const promptSpeech = isUpdate
+      ? `Got it, ${candidateNum}. Is your final answer ${candidateNum}?`
+      : `Is your final answer ${candidateNum}?`;
+
+    speakText(promptSpeech, () => {
+      if (state.phase !== 'CONFIRM_VOICE' || state.cardResultCounter !== confirmToken) return;
+      state.confirmUnlocked = true;
+      startConfirmCountdownLoop(confirmToken);
+      if (settings.autoMic) {
+        startListeningSafely();
+      }
+    });
+  }
+
+  function startConfirmCountdownLoop(confirmToken) {
+    clearInterval(state.confirmIntervalId);
+    state.confirmStartTimeMs = performance.now();
+    state.confirmRemainingMs = CONFIRM_TIMEOUT_MS;
+
+    state.confirmIntervalId = setInterval(() => {
+      if (state.phase !== 'CONFIRM_VOICE' || state.cardResultCounter !== confirmToken) {
+        clearInterval(state.confirmIntervalId);
+        return;
+      }
+
+      const elapsed = performance.now() - state.confirmStartTimeMs;
+      state.confirmRemainingMs = Math.max(0, CONFIRM_TIMEOUT_MS - elapsed);
+
+      if (dom.voiceConfirmTimer) {
+        dom.voiceConfirmTimer.textContent = `${(state.confirmRemainingMs / 1000).toFixed(1)}s`;
+      }
+      renderTimerUI(state.confirmRemainingMs, CONFIRM_TIMEOUT_MS);
+
+      if (state.confirmRemainingMs <= 0) {
+        clearInterval(state.confirmIntervalId);
+        submitConfirmedVoiceAnswer(state.confirmCandidate);
+      }
+    }, 100);
+  }
+
+  function submitConfirmedVoiceAnswer(finalVal) {
+    if (!state.currentCard) return;
+    clearAllTimers();
+    if (dom.voiceConfirmBox) dom.voiceConfirmBox.classList.add('hidden');
+    dom.voiceBar.classList.remove('hidden');
+
+    state.phase = 'QUESTION';
+    const target = state.currentCard.targetAnswer;
+    if (Number(finalVal) === target) {
+      handleCorrectAnswer(state.firstSpokenElapsedMs);
+    } else {
+      handleWrongAnswer(Number(finalVal), 'voice');
+    }
+  }
+
+  function cancelVoiceConfirmation() {
+    if (!state.currentCard) return;
+    clearAllTimers();
+    state.cardResultCounter++;
+
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // Ignore
+      }
+    }
+    isSpeakingTTS = false;
+
+    if (dom.voiceConfirmBox) dom.voiceConfirmBox.classList.add('hidden');
+    dom.voiceBar.classList.remove('hidden');
+
+    state.phase = 'QUESTION';
+    state.confirmCandidate = null;
+    state.confirmUnlocked = false;
+    state.firstSpokenElapsedMs = null;
+    state.typedInput = '';
+
+    const activeSlot = getActiveSlotElement();
+    activeSlot.textContent = '?';
+    activeSlot.classList.remove('filled');
+
+    dom.voiceTranscript.textContent = 'Cancelled — say or type the new answer';
+    if (dom.timerStatusText) {
+      dom.timerStatusText.textContent = 'TIME REMAINING';
+    }
+
+    // Resume the question timer from where it paused (giving at least 6s so they aren't insta-expired)
+    const resumeMs = Math.max(6000, state.timerRemainingMs);
+    const totalMs = settings.timerSeconds * 1000;
+    state.cardStartTimeMs = performance.now() - (totalMs - resumeMs);
+    startCountdownLoop();
+
+    if (settings.autoMic) {
+      startListeningSafely();
+    }
+  }
+
   function startGauntletRound() {
     clearAllTimers();
     state.queue = buildRoundQueue();
@@ -1187,7 +1480,14 @@ if (typeof document !== 'undefined') {
     clearAllTimers();
     state.cardResultCounter++;
     state.echoUnlocked = false;
+    state.confirmUnlocked = false;
+    state.confirmCandidate = null;
+    state.firstSpokenElapsedMs = null;
     setKeypadLocked(false);
+
+    if (dom.voiceConfirmBox) dom.voiceConfirmBox.classList.add('hidden');
+    dom.voiceBar.classList.remove('hidden');
+    if (dom.timerStatusText) dom.timerStatusText.textContent = 'TIME REMAINING';
 
     if (state.queue.length === 0) {
       finishRoundVictory();
@@ -1312,14 +1612,14 @@ if (typeof document !== 'undefined') {
     dom.timerBarFill.classList.toggle('danger', isDanger);
   }
 
-  function handleCorrectAnswer() {
+  function handleCorrectAnswer(overrideElapsedMs) {
     if (state.phase !== 'QUESTION' || !state.currentCard) return;
     clearAllTimers();
     state.cardResultCounter++;
     state.phase = 'PRAISE';
 
     const card = state.currentCard;
-    const elapsedMs = Math.max(200, performance.now() - state.cardStartTimeMs);
+    const elapsedMs = overrideElapsedMs || Math.max(200, performance.now() - state.cardStartTimeMs);
 
     // Track First-Try Speed purely on initial attempts (not retries)
     if (!card.isRetry) {
@@ -1387,6 +1687,9 @@ if (typeof document !== 'undefined') {
     state.phase = 'REVEAL';
     state.echoUnlocked = false;
     state.echoInput = '';
+
+    if (dom.voiceConfirmBox) dom.voiceConfirmBox.classList.add('hidden');
+    dom.voiceBar.classList.remove('hidden');
 
     setKeypadLocked(true);
 
@@ -1485,6 +1788,22 @@ if (typeof document !== 'undefined') {
   }
 
   function handleKeypadInput(key) {
+    // Allow keypad interaction during CONFIRM_VOICE phase as well:
+    if (state.phase === 'CONFIRM_VOICE' && state.currentCard) {
+      if (key === 'enter') {
+        submitConfirmedVoiceAnswer(state.confirmCandidate);
+        return;
+      }
+      if (key === 'clear') {
+        cancelVoiceConfirmation();
+        return;
+      }
+      if (/^\d$/.test(key)) {
+        cancelVoiceConfirmation();
+        // Fall through to QUESTION keypad handling below with the pressed digit
+      }
+    }
+
     if (state.phase === 'REVEAL' && state.currentCard) {
       if (!state.echoUnlocked) return;
 
@@ -1571,7 +1890,11 @@ if (typeof document !== 'undefined') {
 
   function updateHudStats() {
     dom.statScore.textContent = `${state.clearedCount} / ${state.targetCount}`;
-    const remaining = state.queue.length + (state.phase === 'QUESTION' || state.phase === 'REVEAL' ? 1 : 0);
+    const isCardActive =
+      state.phase === 'QUESTION' ||
+      state.phase === 'CONFIRM_VOICE' ||
+      state.phase === 'REVEAL';
+    const remaining = state.queue.length + (isCardActive ? 1 : 0);
     dom.statRemaining.textContent = String(remaining);
     dom.statStreak.textContent = `🔥 ${state.streak}`;
   }
@@ -1622,6 +1945,7 @@ if (typeof document !== 'undefined') {
 
   function clearAllTimers() {
     clearInterval(state.timerIntervalId);
+    clearInterval(state.confirmIntervalId);
     clearInterval(state.ttsPollIntervalId);
     clearTimeout(state.pendingWrongNumberTimerId);
   }
@@ -1730,6 +2054,7 @@ if (typeof document !== 'undefined') {
     dom.settingSpeakTrick.checked = settings.speakTrick;
     dom.settingShowTwin.checked = settings.showTwin;
     dom.settingMic.checked = settings.autoMic;
+    if (dom.settingConfirmVoice) dom.settingConfirmVoice.checked = settings.confirmVoice;
     dom.settingSpeakQuestion.checked = settings.speakQuestion;
     dom.settingAutoKeypad.checked = settings.autoKeypad;
 
@@ -1746,6 +2071,22 @@ if (typeof document !== 'undefined') {
       state.phase = 'LOBBY';
       showScreen('LOBBY');
     });
+
+    if (dom.btnConfirmYes) {
+      dom.btnConfirmYes.addEventListener('click', () => {
+        if (state.phase === 'CONFIRM_VOICE' && state.confirmCandidate !== null) {
+          submitConfirmedVoiceAnswer(state.confirmCandidate);
+        }
+      });
+    }
+
+    if (dom.btnConfirmNo) {
+      dom.btnConfirmNo.addEventListener('click', () => {
+        if (state.phase === 'CONFIRM_VOICE') {
+          cancelVoiceConfirmation();
+        }
+      });
+    }
 
     document.querySelectorAll('#timer-size-control .seg-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1799,7 +2140,7 @@ if (typeof document !== 'undefined') {
     });
 
     document.getElementById('btn-front-hint').addEventListener('click', () => {
-      if (state.phase === 'QUESTION' && state.currentCard) {
+      if ((state.phase === 'QUESTION' || state.phase === 'CONFIRM_VOICE') && state.currentCard) {
         const trick = getMentalMathTrick(state.currentCard.a, state.currentCard.b);
         dom.frontHintBox.textContent = trick.text;
         dom.frontHintBox.classList.toggle('hidden');
@@ -1807,7 +2148,8 @@ if (typeof document !== 'undefined') {
     });
 
     document.getElementById('btn-flip-giveup').addEventListener('click', () => {
-      if (state.phase === 'QUESTION') {
+      if (state.phase === 'QUESTION' || state.phase === 'CONFIRM_VOICE') {
+        state.phase = 'QUESTION';
         handleWrongAnswer('', 'flip');
       }
     });
@@ -1817,7 +2159,7 @@ if (typeof document !== 'undefined') {
       settings.autoMic = !settings.autoMic;
       saveSettings();
       syncLobbyControlsUI();
-      if (settings.autoMic && (state.phase === 'QUESTION' || (state.phase === 'REVEAL' && state.echoUnlocked))) {
+      if (settings.autoMic && isVoicePhaseActive()) {
         startListeningSafely();
       } else {
         stopListeningSafely();
@@ -1913,11 +2255,17 @@ if (typeof document !== 'undefined') {
       settings.autoMic = dom.settingMic.checked;
       saveSettings();
       syncLobbyControlsUI();
-      if (state.phase === 'QUESTION' || (state.phase === 'REVEAL' && state.echoUnlocked)) {
+      if (isVoicePhaseActive()) {
         if (settings.autoMic) startListeningSafely();
         else stopListeningSafely();
       }
     });
+    if (dom.settingConfirmVoice) {
+      dom.settingConfirmVoice.addEventListener('change', () => {
+        settings.confirmVoice = dom.settingConfirmVoice.checked;
+        saveSettings();
+      });
+    }
     dom.settingSpeakQuestion.addEventListener('change', () => {
       settings.speakQuestion = dom.settingSpeakQuestion.checked;
       saveSettings();
@@ -1970,6 +2318,7 @@ if (typeof document !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     APP_VERSION,
+    CONFIRM_TIMEOUT_MS,
     WORD_TO_NUM,
     createInitialStats,
     syncCommutativeStats,
@@ -1979,6 +2328,8 @@ if (typeof module !== 'undefined' && module.exports) {
     stripQuestionEcho,
     extractSpokenNumbers,
     getWrongAnswerDebounceMs,
+    getVoiceCaptureSettleMs,
+    parseVoiceConfirmationResponse,
     advanceRetryQueueOnHit,
     scheduleRetryOnMiss,
     getProximityFeedback,

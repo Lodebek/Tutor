@@ -609,6 +609,77 @@ body.success-flash {
   text-align: center;
 }
 
+/* Voice Final Answer Confirmation Loop Banner */
+.voice-confirm-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid var(--accent-primary);
+  border-radius: 12px;
+  padding: 8px 10px;
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.25);
+}
+
+.voice-confirm-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-confirm-prompt {
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: #38bdf8;
+}
+
+.voice-confirm-timer {
+  font-size: 0.82rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.voice-confirm-sub {
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-align: center;
+}
+
+.voice-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.confirm-yes-btn,
+.confirm-no-btn {
+  border: none;
+  border-radius: 9px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.confirm-yes-btn {
+  background: #22c55e;
+  color: #052e16;
+}
+
+.confirm-no-btn {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
 /* Voice Status Bar inside Card Front */
 .voice-bar {
   display: flex;
