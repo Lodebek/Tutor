@@ -1,0 +1,217 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 760" width="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#070a12"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+    <linearGradient id="cardFrontGrad" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#172033"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="cardBackGrad" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#2b1019"/>
+      <stop offset="100%" stop-color="#14080e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Showcase Backdrop -->
+  <rect width="880" height="760" rx="24" fill="url(#bgGrad)"/>
+
+  <!-- ===================================================================
+       LEFT PHONE: ACTIVE QUESTION + VOICE LISTENING + KEYPAD
+       =================================================================== -->
+  <g transform="translate(45, 30)">
+    <!-- Pixel Bezel -->
+    <rect x="0" y="0" width="365" height="700" rx="38" fill="#0b0f19" stroke="#334155" stroke-width="4"/>
+    <circle cx="182.5" cy="18" r="5" fill="#1e293b"/>
+
+    <!-- Header -->
+    <text x="24" y="54" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="900" fill="url(#brandGrad)" letter-spacing="1.2">⚡ GAUNTLET</text>
+    <rect x="135" y="40" width="44" height="18" rx="5" fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.35)"/>
+    <text x="157" y="52" font-family="system-ui, sans-serif" font-size="10" font-weight="700" fill="#38bdf8" text-anchor="middle">v1.4 ↻</text>
+
+    <rect x="258" y="36" width="52" height="26" rx="8" fill="#1e293b"/>
+    <text x="284" y="53" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#38bdf8" text-anchor="middle">📊 42%</text>
+    <rect x="316" y="36" width="30" height="26" rx="8" fill="#1e293b"/>
+    <text x="331" y="53" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">⚙️</text>
+
+    <!-- HUD Stats -->
+    <g transform="translate(20, 72)">
+      <rect x="0" y="0" width="103" height="38" rx="8" fill="#172033" stroke="rgba(255,255,255,0.08)"/>
+      <text x="51.5" y="14" font-family="system-ui, sans-serif" font-size="8.5" font-weight="700" fill="#94a3b8" text-anchor="middle">CLEARED</text>
+      <text x="51.5" y="30" font-family="system-ui, sans-serif" font-size="13" font-weight="800" fill="#f8fafc" text-anchor="middle">6 / 15</text>
+
+      <rect x="111" y="0" width="103" height="38" rx="8" fill="#172033" stroke="rgba(255,255,255,0.08)"/>
+      <text x="162.5" y="14" font-family="system-ui, sans-serif" font-size="8.5" font-weight="700" fill="#94a3b8" text-anchor="middle">PILE LEFT</text>
+      <text x="162.5" y="30" font-family="system-ui, sans-serif" font-size="13" font-weight="800" fill="#f8fafc" text-anchor="middle">9</text>
+
+      <rect x="222" y="0" width="103" height="38" rx="8" fill="#172033" stroke="rgba(255,255,255,0.08)"/>
+      <text x="273.5" y="14" font-family="system-ui, sans-serif" font-size="8.5" font-weight="700" fill="#94a3b8" text-anchor="middle">STREAK</text>
+      <text x="273.5" y="30" font-family="system-ui, sans-serif" font-size="13" font-weight="800" fill="#f8fafc" text-anchor="middle">🔥 6</text>
+    </g>
+
+    <!-- Countdown Timer Bar -->
+    <g transform="translate(20, 122)">
+      <text x="0" y="12" font-family="system-ui, sans-serif" font-size="9.5" font-weight="800" fill="#94a3b8" letter-spacing="0.8">TIME REMAINING</text>
+      <text x="325" y="12" font-family="system-ui, sans-serif" font-size="14" font-weight="900" fill="#22c55e" text-anchor="end">14.8s</text>
+      <rect x="0" y="18" width="325" height="8" rx="4" fill="#1e293b"/>
+      <rect x="0" y="18" width="240" height="8" rx="4" fill="#22c55e"/>
+    </g>
+
+    <!-- Front Flashcard -->
+    <g transform="translate(20, 158)">
+      <rect x="0" y="0" width="325" height="252" rx="18" fill="url(#cardFrontGrad)" stroke="rgba(255,255,255,0.14)"/>
+      <rect x="14" y="14" width="96" height="20" rx="5" fill="rgba(56,189,248,0.14)"/>
+      <text x="62" y="27" font-family="system-ui, sans-serif" font-size="9" font-weight="800" fill="#38bdf8" text-anchor="middle">CARD 7 OF 15</text>
+
+      <rect x="180" y="12" width="54" height="22" rx="6" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)"/>
+      <text x="207" y="26" font-family="system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#94a3b8" text-anchor="middle">💡 Hint</text>
+      <rect x="240" y="12" width="72" height="22" rx="6" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)"/>
+      <text x="276" y="26" font-family="system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#94a3b8" text-anchor="middle">I Don't Know ↻</text>
+
+      <!-- Praise Toast -->
+      <rect x="78" y="44" width="170" height="22" rx="11" fill="rgba(34,197,94,0.2)" stroke="rgba(34,197,94,0.5)"/>
+      <text x="163" y="58" font-family="system-ui, sans-serif" font-size="10.5" font-weight="900" fill="#86efac" text-anchor="middle">🌟 Boom! Nailed it!</text>
+
+      <!-- Equation -->
+      <text x="115" y="122" font-family="system-ui, sans-serif" font-size="46" font-weight="900" fill="#f8fafc" text-anchor="middle">7 × 8 =</text>
+      <rect x="205" y="82" width="66" height="52" rx="12" fill="rgba(56,189,248,0.12)" stroke="#38bdf8" stroke-width="2" stroke-dasharray="5,4"/>
+      <text x="238" y="122" font-family="system-ui, sans-serif" font-size="42" font-weight="900" fill="#ffffff" text-anchor="middle">?</text>
+
+      <!-- Twin Badge -->
+      <rect x="102" y="146" width="120" height="20" rx="10" fill="rgba(255,255,255,0.04)"/>
+      <text x="162" y="159" font-family="system-ui, sans-serif" font-size="10.5" font-weight="700" fill="#94a3b8" text-anchor="middle">⇄ Same as 8 × 7</text>
+
+      <!-- Voice Listening Bar -->
+      <rect x="14" y="184" width="297" height="54" rx="12" fill="rgba(15,23,42,0.82)" stroke="rgba(255,255,255,0.1)"/>
+      <circle cx="96" cy="203" r="5" fill="#22c55e"/>
+      <circle cx="96" cy="203" r="9" fill="none" stroke="rgba(34,197,94,0.45)" stroke-width="2"/>
+      <text x="172" y="207" font-family="system-ui, sans-serif" font-size="11.5" font-weight="800" fill="#f8fafc" text-anchor="middle">Listening for number...</text>
+      <text x="162.5" y="226" font-family="system-ui, sans-serif" font-size="10.5" fill="#94a3b8" text-anchor="middle">Say the number out loud (or use keypad)</text>
+    </g>
+
+    <!-- Keypad Section -->
+    <g transform="translate(20, 424)">
+      <text x="0" y="12" font-family="system-ui, sans-serif" font-size="10" font-weight="700" fill="#94a3b8">⌨️ Hide Keypad</text>
+      <text x="325" y="12" font-family="system-ui, sans-serif" font-size="9.5" fill="#64748b" text-anchor="end">Voice active — or tap digits</text>
+
+      <!-- Keypad 4x3 Grid -->
+      <g transform="translate(0, 22)">
+        <rect x="0" y="0" width="103" height="48" rx="11" fill="#1e293b"/><text x="51.5" y="30" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">1</text>
+        <rect x="111" y="0" width="103" height="48" rx="11" fill="#1e293b"/><text x="162.5" y="30" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">2</text>
+        <rect x="222" y="0" width="103" height="48" rx="11" fill="#1e293b"/><text x="273.5" y="30" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">3</text>
+
+        <rect x="0" y="55" width="103" height="48" rx="11" fill="#1e293b"/><text x="51.5" y="85" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">4</text>
+        <rect x="111" y="55" width="103" height="48" rx="11" fill="#1e293b"/><text x="162.5" y="85" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">5</text>
+        <rect x="222" y="55" width="103" height="48" rx="11" fill="#1e293b"/><text x="273.5" y="85" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">6</text>
+
+        <rect x="0" y="110" width="103" height="48" rx="11" fill="#1e293b"/><text x="51.5" y="140" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">7</text>
+        <rect x="111" y="110" width="103" height="48" rx="11" fill="#1e293b"/><text x="162.5" y="140" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">8</text>
+        <rect x="222" y="110" width="103" height="48" rx="11" fill="#1e293b"/><text x="273.5" y="140" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">9</text>
+
+        <rect x="0" y="165" width="103" height="48" rx="11" fill="rgba(239,68,68,0.15)"/><text x="51.5" y="194" font-family="system-ui, sans-serif" font-size="13" font-weight="800" fill="#fca5a5" text-anchor="middle">CLR / ⌫</text>
+        <rect x="111" y="165" width="103" height="48" rx="11" fill="#1e293b"/><text x="162.5" y="195" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">0</text>
+        <rect x="222" y="165" width="103" height="48" rx="11" fill="#38bdf8"/><text x="273.5" y="194" font-family="system-ui, sans-serif" font-size="13" font-weight="900" fill="#04131d" text-anchor="middle">CHECK ✓</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ===================================================================
+       RIGHT PHONE: 3D FLIPPED CARD BACK (PROXIMITY FEEDBACK + TRICK + ECHO)
+       =================================================================== -->
+  <g transform="translate(470, 30)">
+    <!-- Pixel Bezel -->
+    <rect x="0" y="0" width="365" height="700" rx="38" fill="#0b0f19" stroke="#334155" stroke-width="4"/>
+    <circle cx="182.5" cy="18" r="5" fill="#1e293b"/>
+
+    <!-- Header -->
+    <text x="24" y="54" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="900" fill="url(#brandGrad)" letter-spacing="1.2">⚡ GAUNTLET</text>
+    <rect x="135" y="40" width="44" height="18" rx="5" fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.35)"/>
+    <text x="157" y="52" font-family="system-ui, sans-serif" font-size="10" font-weight="700" fill="#38bdf8" text-anchor="middle">v1.4 ↻</text>
+
+    <rect x="258" y="36" width="52" height="26" rx="8" fill="#1e293b"/>
+    <text x="284" y="53" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#38bdf8" text-anchor="middle">📊 42%</text>
+    <rect x="316" y="36" width="30" height="26" rx="8" fill="#1e293b"/>
+    <text x="331" y="53" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">⚙️</text>
+
+    <!-- HUD Stats -->
+    <g transform="translate(20, 72)">
+      <rect x="0" y="0" width="103" height="38" rx="8" fill="#172033" stroke="rgba(255,255,255,0.08)"/>
+      <text x="51.5" y="14" font-family="system-ui, sans-serif" font-size="8.5" font-weight="700" fill="#94a3b8" text-anchor="middle">CLEARED</text>
+      <text x="51.5" y="30" font-family="system-ui, sans-serif" font-size="13" font-weight="800" fill="#f8fafc" text-anchor="middle">6 / 15</text>
+
+      <rect x="111" y="0" width="103" height="38" rx="8" fill="#172033" stroke="rgba(255,255,255,0.08)"/>
+      <text x="162.5" y="14" font-family="system-ui, sans-serif" font-size="8.5" font-weight="700" fill="#94a3b8" text-anchor="middle">PILE LEFT</text>
+      <text x="162.5" y="30" font-family="system-ui, sans-serif" font-size="13" font-weight="800" fill="#f8fafc" text-anchor="middle">10</text>
+
+      <rect x="222" y="0" width="103" height="38" rx="8" fill="#172033" stroke="rgba(255,255,255,0.08)"/>
+      <text x="273.5" y="14" font-family="system-ui, sans-serif" font-size="8.5" font-weight="700" fill="#94a3b8" text-anchor="middle">STREAK</text>
+      <text x="273.5" y="30" font-family="system-ui, sans-serif" font-size="13" font-weight="800" fill="#f8fafc" text-anchor="middle">🔥 0</text>
+    </g>
+
+    <!-- Countdown Timer Bar -->
+    <g transform="translate(20, 122)">
+      <text x="0" y="12" font-family="system-ui, sans-serif" font-size="9.5" font-weight="800" fill="#94a3b8" letter-spacing="0.8">FLIPPED — ACTIVE ECHO REQUIRED</text>
+      <text x="325" y="12" font-family="system-ui, sans-serif" font-size="13" font-weight="900" fill="#f59e0b" text-anchor="end">LOCKED IN</text>
+      <rect x="0" y="18" width="325" height="8" rx="4" fill="#1e293b"/>
+      <rect x="0" y="18" width="325" height="8" rx="4" fill="#f59e0b"/>
+    </g>
+
+    <!-- Flipped Card Back -->
+    <g transform="translate(20, 158)">
+      <rect x="0" y="0" width="325" height="252" rx="18" fill="url(#cardBackGrad)" stroke="rgba(239,68,68,0.5)" stroke-width="1.5"/>
+
+      <!-- Proximity Banner -->
+      <rect x="24" y="12" width="277" height="24" rx="12" fill="rgba(34,197,94,0.22)" stroke="rgba(34,197,94,0.5)"/>
+      <text x="162.5" y="28" font-family="system-ui, sans-serif" font-size="10.5" font-weight="900" fill="#86efac" text-anchor="middle">🔥 SO CLOSE! (You said 54 — only 2 off!)</text>
+
+      <!-- Full Revealed Equation -->
+      <rect x="42" y="44" width="241" height="54" rx="13" fill="rgba(255,255,255,0.07)" stroke="rgba(251,191,36,0.7)" stroke-width="2"/>
+      <text x="162.5" y="83" font-family="system-ui, sans-serif" font-size="36" font-weight="900" fill="#ffffff" text-anchor="middle">7 × 8 = 56</text>
+
+      <!-- Twin & Division Link -->
+      <text x="162.5" y="114" font-family="system-ui, sans-serif" font-size="10.5" font-weight="700" fill="#cbd5e1" text-anchor="middle">⇄ Twin: 8 × 7 = 56   |   56 ÷ 7 = 8</text>
+
+      <!-- Stepping-Stone Mental Math Trick -->
+      <rect x="14" y="124" width="297" height="36" rx="9" fill="rgba(245,158,11,0.16)" stroke="rgba(251,191,36,0.4)"/>
+      <text x="162.5" y="146" font-family="system-ui, sans-serif" font-size="10.5" font-weight="800" fill="#fde68a" text-anchor="middle">💡 Square + 1 Group: (7 × 7 = 49) + 7 more = 56</text>
+
+      <!-- Active Echo Box (No Next Button!) -->
+      <rect x="14" y="168" width="297" height="54" rx="11" fill="rgba(15,23,42,0.88)" stroke="rgba(56,189,248,0.7)" stroke-width="2"/>
+      <circle cx="48" cy="186" r="5" fill="#22c55e"/>
+      <text x="170" y="190" font-family="system-ui, sans-serif" font-size="11.5" font-weight="900" fill="#38bdf8" text-anchor="middle">🎙️ Say or type "56" to advance!</text>
+      <text x="162.5" y="210" font-family="system-ui, sans-serif" font-size="10.5" font-weight="700" fill="#e2e8f0" text-anchor="middle">Waiting for "56" (No skip button allowed)</text>
+
+      <!-- Spacing Footer -->
+      <text x="162.5" y="239" font-family="system-ui, sans-serif" font-size="10" font-weight="700" fill="#cbd5e1" text-anchor="middle">🔁 Spacing 1→3→7: Next check in 1 card</text>
+    </g>
+
+    <!-- Keypad Section -->
+    <g transform="translate(20, 424)">
+      <text x="0" y="12" font-family="system-ui, sans-serif" font-size="10" font-weight="700" fill="#94a3b8">⌨️ Hide Keypad</text>
+      <text x="325" y="12" font-family="system-ui, sans-serif" font-size="9.5" fill="#38bdf8" text-anchor="end">Echo "56" by voice or keypad</text>
+
+      <g transform="translate(0, 22)">
+        <rect x="0" y="0" width="103" height="48" rx="11" fill="#1e293b"/><text x="51.5" y="30" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">1</text>
+        <rect x="111" y="0" width="103" height="48" rx="11" fill="#1e293b"/><text x="162.5" y="30" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">2</text>
+        <rect x="222" y="0" width="103" height="48" rx="11" fill="#1e293b"/><text x="273.5" y="30" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">3</text>
+
+        <rect x="0" y="55" width="103" height="48" rx="11" fill="#1e293b"/><text x="51.5" y="85" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">4</text>
+        <rect x="111" y="55" width="103" height="48" rx="11" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/><text x="162.5" y="85" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#38bdf8" text-anchor="middle">5</text>
+        <rect x="222" y="55" width="103" height="48" rx="11" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/><text x="273.5" y="85" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#38bdf8" text-anchor="middle">6</text>
+
+        <rect x="0" y="110" width="103" height="48" rx="11" fill="#1e293b"/><text x="51.5" y="140" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">7</text>
+        <rect x="111" y="110" width="103" height="48" rx="11" fill="#1e293b"/><text x="162.5" y="140" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">8</text>
+        <rect x="222" y="110" width="103" height="48" rx="11" fill="#1e293b"/><text x="273.5" y="140" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">9</text>
+
+        <rect x="0" y="165" width="103" height="48" rx="11" fill="rgba(239,68,68,0.15)"/><text x="51.5" y="194" font-family="system-ui, sans-serif" font-size="13" font-weight="800" fill="#fca5a5" text-anchor="middle">CLR / ⌫</text>
+        <rect x="111" y="165" width="103" height="48" rx="11" fill="#1e293b"/><text x="162.5" y="195" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#f8fafc" text-anchor="middle">0</text>
+        <rect x="222" y="165" width="103" height="48" rx="11" fill="#38bdf8"/><text x="273.5" y="194" font-family="system-ui, sans-serif" font-size="13" font-weight="900" fill="#04131d" text-anchor="middle">CHECK ✓</text>
+      </g>
+    </g>
+  </g>
+</svg>
