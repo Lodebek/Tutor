@@ -1,33 +1,67 @@
 /**
- * Multiplication Gauntlet v1.3 — Research-Backed Learning & Speed Engine
- * Features:
- * 1. 1×1 to 12×12 (144 Facts) + True 36 Commutative Pairs + Boss 15 Deck Presets
- * 2. Active Echo on Misses (must say or type the right answer while looking at the flipped card)
- * 3. Stepping-Stone Mental Math Tricks (💡 anchor decompositions for every fact)
- * 4. Progressive 1 → 3 → 7 Expanding Retrieval Spacing on missed cards
- * 5. Fact Families / Missing Factor Mode (7 × ? = 56 alongside 7 × 8 = ?)
- * 6. Auto-Engaged SpeechRecognition (ignores non-numeric speech) + SpeechSynthesis reprimands
+ * Multiplication Gauntlet v1.4 — Research-Backed Learning & Speed Engine
+ * Updates in v1.4:
+ * - Removed Next Card skip button on flipped cards
+ * - Strict UI & Keypad Lock while the failure audio sequence is spoken
+ * - Mandatory Active Echo (must say or type the right answer AFTER audio finishes to advance)
+ * - Varied voice compliments on every right answer + streak callouts
+ * - Proximity-based wrong-answer feedback (<= 1x factor: "You're so close / Nice try",
+ *   1x..2x factor: "Come on, you can do better", > 2x factor: "Let's try again, we can do better")
  */
 
 const STORAGE_KEY_STATS = 'gauntlet_144_stats_v1';
 const STORAGE_KEY_SETTINGS = 'gauntlet_settings_v2';
 
+const PRAISE_PHRASES = [
+  "Boom! Nailed it!",
+  "Awesome job!",
+  "Crushed it!",
+  "Spot on! Keep going!",
+  "Yes! Right on the money!",
+  "Lightning fast! Nice work!",
+  "You got it! Way to go!",
+  "Sharp thinking! That's it!",
+  "Exact match! Great job!",
+  "Bam! You know your stuff!",
+  "Superb! Keep that momentum!",
+  "Bullseye! Nicely done!",
+  "Bingo! Locked it in!",
+  "Unstoppable! Great answer!",
+  "Brilliant! Keep rolling!",
+  "Clean hit! Well done!"
+];
+
 const TIMEOUT_REPRIMANDS = [
-  "Too slow! Pay attention!",
-  "Time is up! Faster!",
-  "Wake up! You ran out of time!",
-  "Way too slow! Stay sharp!",
-  "Clock hit zero! Memorize this!"
+  "Time is up! Let's lock this one in!",
+  "Ran out of time! Listen closely so you nail it next time!",
+  "Clock hit zero! Let's learn this fact right now!",
+  "Too slow on the clock! Let's memorize this one together!"
 ];
 
-const WRONG_REPRIMANDS = [
-  "Wrong! Pay attention!",
-  "Nope! Focus!",
-  "Incorrect! Lock this in!",
-  "Not quite! Memorize it!"
+const CLOSE_WRONG_PHRASES = [
+  "Ooh, you're so close! Nice try!",
+  "So close! Almost had it!",
+  "Nice try! You are right next to the answer!",
+  "Super close! Just a tiny bit off!",
+  "Good try, you're right in the neighborhood!"
 ];
 
-// The 15 hardest 4th-grade "Boss Facts" that cause ~80% of mistakes
+const MID_WRONG_PHRASES = [
+  "Come on, you can do better than that!",
+  "Not quite! Come on, you can get closer than that!",
+  "You're a couple groups off—come on, you can do better!",
+  "Almost, but focus up—you can do better!",
+  "Think carefully, you can do better on this one!"
+];
+
+const FAR_WRONG_PHRASES = [
+  "Whoa, way off! Let's try again, we can do better!",
+  "That one was way off—let's try again, we can do better!",
+  "Hold on, let's reset and try again, we can do better!",
+  "Way off the mark! Let's learn this one, we can do better!",
+  "Let's try again on this one, we can do much better!"
+];
+
 const BOSS_15_PAIRS = [
   [6, 6], [6, 7], [6, 8], [6, 9], [6, 12],
   [7, 7], [7, 8], [7, 9], [7, 12],
@@ -38,8 +72,7 @@ const BOSS_15_PAIRS = [
 const defaultSettings = {
   roundSize: 15,
   timerSeconds: 20,
-  requireActiveEcho: true,
-  revealHoldMs: 7000, // 7s default when Active Echo is off (0 = manual tap only)
+  speakPraise: true,
   retryMode: 'expanding', // 'expanding' (1->3->7) | 'immediate' (1 card) | 'standard' (2-4) | 'off'
   questionMode: 'product', // 'product' (7x8=?) | 'mixed' | 'missing_factor' (7x?=56)
   showTrick: true,
@@ -55,10 +88,12 @@ const defaultSettings = {
 
 let settings = loadSettings();
 let stats144 = loadStats();
+let lastPraiseIndex = -1;
 
 // Runtime Game State
 const state = {
-  phase: 'LOBBY', // 'LOBBY' | 'QUESTION' | 'REVEAL' | 'VICTORY'
+  phase: 'LOBBY', // 'LOBBY' | 'QUESTION' | 'PRAISE' | 'REVEAL' | 'VICTORY'
+  echoUnlocked: false, // False while failure TTS sequence is speaking; True once ready for echo
   queue: [],
   currentCard: null,
   typedInput: '',
@@ -72,7 +107,6 @@ const state = {
   cardStartTimeMs: 0,
   timerRemainingMs: 20000,
   timerIntervalId: null,
-  revealAutoAdvanceId: null,
   pendingWrongNumberTimerId: null,
   cardResultCounter: 0
 };
@@ -105,6 +139,7 @@ const dom = {
   timerBarFill: document.getElementById('timer-bar-fill'),
   flashcard: document.getElementById('flashcard'),
   cardTag: document.getElementById('card-tag'),
+  praiseToast: document.getElementById('praise-toast'),
   slotLeft: document.getElementById('slot-left'),
   slotMid: document.getElementById('slot-mid'),
   slotRight: document.getElementById('slot-right'),
@@ -128,8 +163,7 @@ const dom = {
   matrixContainer: document.getElementById('matrix-container'),
   modalSettings: document.getElementById('modal-settings'),
   settingTimer: document.getElementById('setting-timer'),
-  settingActiveEcho: document.getElementById('setting-active-echo'),
-  settingRevealHold: document.getElementById('setting-reveal-hold'),
+  settingSpeakPraise: document.getElementById('setting-speak-praise'),
   settingRetryMode: document.getElementById('setting-retry-mode'),
   settingQuestionMode: document.getElementById('setting-question-mode'),
   settingShowTrick: document.getElementById('setting-show-trick'),
@@ -166,7 +200,7 @@ function saveSettings() {
   try {
     localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
   } catch {
-    // Ignore storage quota issues
+    // Ignore
   }
 }
 
@@ -216,6 +250,77 @@ function updateMasteryUI() {
   dom.masteryPct.textContent = `${pct}%`;
   dom.lobbyMasteryCount.textContent = `${mastered} / 144 Mastered (${pct}%)`;
   dom.lobbyMasteryFill.style.width = `${pct}%`;
+}
+
+/* ==========================================================================
+   COMPLIMENT & PROXIMITY FEEDBACK GENERATORS
+   ========================================================================== */
+
+function pickVariedCompliment(streak) {
+  if (streak === 5) return "Five in a row! You are on fire!";
+  if (streak === 10) return "Ten streak! Unstoppable math machine!";
+  if (streak === 15) return "Fifteen straight! Legendary focus!";
+
+  let idx = Math.floor(Math.random() * PRAISE_PHRASES.length);
+  if (idx === lastPraiseIndex) {
+    idx = (idx + 1) % PRAISE_PHRASES.length;
+  }
+  lastPraiseIndex = idx;
+  return PRAISE_PHRASES[idx];
+}
+
+/**
+ * Evaluates how close a wrong answer is relative to the factor size:
+ * - Off by <= 1x factor (e.g. for 3×9=27, off by <= 9): Supportive ("You're so close! Nice try!")
+ * - Off by > 1x factor and <= 2x factor (e.g. 10..18 off): ("Come on, you can do better!")
+ * - Off by > 2x factor (e.g. > 18 off): ("Way off! Let's try again, we can do better!")
+ */
+function getProximityFeedback(card, wrongVal, source) {
+  if (wrongVal === undefined || wrongVal === '' || isNaN(Number(wrongVal))) {
+    return {
+      tierClass: 'mid-tier',
+      bannerText: `🔄 LET'S LEARN THIS ONE!`,
+      speech: `Let's learn this one together!`
+    };
+  }
+
+  const numVal = Number(wrongVal);
+  const factorStep = Math.max(card.a, card.b);
+
+  // Measure distance in product space
+  const diff = card.qType === 'missing_factor'
+    ? Math.abs(numVal * card.a - card.product)
+    : Math.abs(numVal - card.product);
+
+  const verb = source === 'voice' ? 'said' : 'typed';
+
+  // Tier 1: Off by <= 1x factor
+  if (diff <= factorStep) {
+    const phrase = CLOSE_WRONG_PHRASES[Math.floor(Math.random() * CLOSE_WRONG_PHRASES.length)];
+    return {
+      tierClass: 'close-tier',
+      bannerText: `🔥 SO CLOSE! (You ${verb} ${numVal} — only ${diff} off!)`,
+      speech: phrase
+    };
+  }
+
+  // Tier 2: Off by > 1x factor up to 2x factor
+  if (diff <= factorStep * 2) {
+    const phrase = MID_WRONG_PHRASES[Math.floor(Math.random() * MID_WRONG_PHRASES.length)];
+    return {
+      tierClass: 'mid-tier',
+      bannerText: `⚡ COME ON, YOU CAN DO BETTER! (You ${verb} ${numVal})`,
+      speech: phrase
+    };
+  }
+
+  // Tier 3: Off by > 2x factor (way off)
+  const phrase = FAR_WRONG_PHRASES[Math.floor(Math.random() * FAR_WRONG_PHRASES.length)];
+  return {
+    tierClass: 'far-tier',
+    bannerText: `🎯 WAY OFF — WE CAN DO BETTER! (You ${verb} ${numVal})`,
+    speech: phrase
+  };
 }
 
 /* ==========================================================================
@@ -282,7 +387,6 @@ function getMentalMathTrick(a, b) {
       };
     }
   }
-  // Square neighbor (e.g. 6×7, 7×8, 8×9, 11×12)
   if (Math.abs(a - b) === 1 && minF >= 3) {
     const sq = minF * minF;
     return {
@@ -363,7 +467,6 @@ function getEligibleCards() {
   }
 
   if (settings.preset === 'true36') {
-    // 36 unique commutative pairs across [3, 4, 5, 6, 7, 8, 9, 12]
     const coreFactors = [3, 4, 5, 6, 7, 8, 9, 12];
     const pairs = [];
     for (let i = 0; i < coreFactors.length; i++) {
@@ -404,7 +507,6 @@ function buildRoundQueue() {
   const pool = getEligibleCards();
   const count = Math.min(settings.roundSize, pool.length);
 
-  // Weight cards so missed/struggling & unseen cards appear more often
   const weighted = pool.map(card => {
     const st = getCardStatus(card);
     let weight = 1 + Math.random() * 0.6;
@@ -424,15 +526,14 @@ function buildRoundQueue() {
       a,
       b,
       product,
-      qType, // 'product' (a × b = ?) | 'missing_factor' (a × ? = product)
+      qType,
       targetAnswer: qType === 'missing_factor' ? b : product,
       id: `${a}x${b}`,
       isRetry: false,
-      retryStage: 0 // 0 = first attempt, 1 = 1-card check, 2 = 3-card check, 3 = 7-card check
+      retryStage: 0
     };
   });
 
-  // Shuffle selected cards for the round
   for (let i = selected.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [selected[i], selected[j]] = [selected[j], selected[i]];
@@ -576,7 +677,7 @@ function initSpeechRecognition() {
     isRecognitionActive = true;
     if (state.phase === 'QUESTION') {
       updateVoiceBarUI(true, 'Listening for number...');
-    } else if (state.phase === 'REVEAL' && settings.requireActiveEcho) {
+    } else if (state.phase === 'REVEAL' && state.echoUnlocked) {
       dom.echoPromptBox.classList.add('listening');
     }
   };
@@ -584,6 +685,8 @@ function initSpeechRecognition() {
   recognition.onresult = (event) => {
     if (!state.currentCard || isSpeakingTTS) return;
     if (state.phase !== 'QUESTION' && state.phase !== 'REVEAL') return;
+    // Ignore all speech on REVEAL while locked!
+    if (state.phase === 'REVEAL' && !state.echoUnlocked) return;
 
     const cardToken = state.cardResultCounter;
     let latestTranscript = '';
@@ -605,14 +708,13 @@ function initSpeechRecognition() {
 
     const target = state.currentCard.targetAnswer;
 
-    // CASE A: Active Echo on the Flipped Card Back (REVEAL phase)
+    // CASE A: Unlocked Active Echo on the Flipped Card Back (REVEAL phase)
     if (state.phase === 'REVEAL') {
-      if (!settings.requireActiveEcho) return;
       if (allCandidates.includes(target)) {
         completeActiveEcho();
       } else if (allCandidates.length > 0) {
         const heard = allCandidates[allCandidates.length - 1];
-        dom.echoInputPreview.textContent = `Heard "${heard}" — say "${target}"!`;
+        dom.echoInputPreview.textContent = `Heard "${heard}" — say or type "${target}"!`;
       } else if (latestTranscript) {
         dom.echoInputPreview.textContent = `Heard "${latestTranscript}" — say "${target}"!`;
       }
@@ -669,7 +771,7 @@ function initSpeechRecognition() {
       !micPermissionDenied &&
       !isSpeakingTTS &&
       settings.autoMic &&
-      (state.phase === 'QUESTION' || (state.phase === 'REVEAL' && settings.requireActiveEcho));
+      (state.phase === 'QUESTION' || (state.phase === 'REVEAL' && state.echoUnlocked));
 
     if (shouldKeepListening) {
       setTimeout(() => {
@@ -677,7 +779,7 @@ function initSpeechRecognition() {
           !isRecognitionActive &&
           !isSpeakingTTS &&
           settings.autoMic &&
-          (state.phase === 'QUESTION' || (state.phase === 'REVEAL' && settings.requireActiveEcho))
+          (state.phase === 'QUESTION' || (state.phase === 'REVEAL' && state.echoUnlocked))
         ) {
           startListeningSafely();
         }
@@ -744,7 +846,8 @@ function speakText(text, onDone) {
     utterance.onend = finishOnce;
     utterance.onerror = finishOnce;
 
-    const safetyMs = Math.max(2400, text.length * 95);
+    // Fallback safety timer so UI never stays locked if mobile TTS drops onend
+    const safetyMs = Math.max(2400, text.length * 92);
     setTimeout(finishOnce, safetyMs);
 
     window.speechSynthesis.speak(utterance);
@@ -763,6 +866,10 @@ function getActiveSlotElement() {
     return dom.slotMid;
   }
   return dom.slotRight;
+}
+
+function setKeypadLocked(locked) {
+  dom.keypadGrid.classList.toggle('locked', locked);
 }
 
 function startGauntletRound() {
@@ -793,6 +900,8 @@ function startGauntletRound() {
 function loadNextCard() {
   clearAllTimers();
   state.cardResultCounter++;
+  state.echoUnlocked = false;
+  setKeypadLocked(false);
 
   if (state.queue.length === 0) {
     finishRoundVictory();
@@ -809,6 +918,7 @@ function loadNextCard() {
   // Flip to Front
   dom.flashcard.classList.remove('flipped');
   dom.frontHintBox.classList.add('hidden');
+  dom.praiseToast.classList.add('hidden');
 
   // Configure equation slots based on question mode ('product' vs 'missing_factor')
   dom.slotLeft.textContent = String(card.a);
@@ -922,13 +1032,14 @@ function renderTimerUI(remainingMs, totalMs) {
 }
 
 /* ==========================================================================
-   ANSWER VALIDATION, EXPANDING SPACING & ACTIVE ECHO REVEAL
+   ANSWER VALIDATION, COMPLIMENTS, PROXIMITY FEEDBACK & LOCKED ECHO
    ========================================================================== */
 
 function handleCorrectAnswer() {
   if (state.phase !== 'QUESTION' || !state.currentCard) return;
   clearAllTimers();
   state.cardResultCounter++;
+  state.phase = 'PRAISE';
 
   const card = state.currentCard;
   const elapsedMs = Math.max(200, performance.now() - state.cardStartTimeMs);
@@ -958,20 +1069,36 @@ function handleCorrectAnswer() {
     saveStats();
   }
 
+  const compliment = pickVariedCompliment(state.streak);
+  dom.praiseToast.textContent = `🌟 ${compliment}`;
+  dom.praiseToast.classList.remove('hidden');
+
   document.body.classList.add('success-flash');
-  setTimeout(() => document.body.classList.remove('success-flash'), 260);
+  setTimeout(() => document.body.classList.remove('success-flash'), 280);
 
   updateHudStats();
 
-  setTimeout(() => {
-    loadNextCard();
-  }, 240);
+  const praiseToken = state.cardResultCounter;
+  if (settings.speakPraise) {
+    speakText(compliment, () => {
+      if (state.cardResultCounter === praiseToken) {
+        loadNextCard();
+      }
+    });
+  } else {
+    setTimeout(() => {
+      if (state.cardResultCounter === praiseToken) {
+        loadNextCard();
+      }
+    }, 450);
+  }
 }
 
 function handleTimeoutPenalty() {
   if (state.phase !== 'QUESTION' || !state.currentCard) return;
   const phrase = TIMEOUT_REPRIMANDS[Math.floor(Math.random() * TIMEOUT_REPRIMANDS.length)];
   triggerCardFlipAndRequeue({
+    tierClass: 'far-tier',
     bannerText: `⏰ TIME'S UP! (${settings.timerSeconds}s EXPIRED)`,
     reprimandSpeech: phrase
   });
@@ -979,14 +1106,11 @@ function handleTimeoutPenalty() {
 
 function handleWrongAnswer(wrongVal, source = 'keypad') {
   if (state.phase !== 'QUESTION' || !state.currentCard) return;
-  const phrase = WRONG_REPRIMANDS[Math.floor(Math.random() * WRONG_REPRIMANDS.length)];
-  const label = wrongVal !== undefined && wrongVal !== ''
-    ? `❌ NOPE! YOU ${source === 'voice' ? 'SAID' : 'ENTERED'} ${wrongVal}`
-    : `🔄 CARD FLIPPED`;
-
+  const prox = getProximityFeedback(state.currentCard, wrongVal, source);
   triggerCardFlipAndRequeue({
-    bannerText: label,
-    reprimandSpeech: phrase
+    tierClass: prox.tierClass,
+    bannerText: prox.bannerText,
+    reprimandSpeech: prox.speech
   });
 }
 
@@ -1003,7 +1127,6 @@ function scheduleMissedCardRetry(card) {
   };
 
   if (settings.retryMode === 'expanding') {
-    // Stage 1 of 1 -> 3 -> 7: test again after 1 card!
     const idx = Math.min(state.queue.length, 1);
     state.queue.splice(idx, 0, retryCard);
     return '🔁 Spacing 1→3→7: Next check in 1 card';
@@ -1015,17 +1138,20 @@ function scheduleMissedCardRetry(card) {
     return '🔁 Queued 1 card back';
   }
 
-  // 'standard' (2..4 cards back)
   const idx = Math.min(state.queue.length, Math.max(1, Math.floor(Math.random() * 3) + 2));
   state.queue.splice(idx, 0, retryCard);
   return `🔁 Re-queued ${idx} cards back`;
 }
 
-function triggerCardFlipAndRequeue({ bannerText, reprimandSpeech }) {
+function triggerCardFlipAndRequeue({ tierClass, bannerText, reprimandSpeech }) {
   clearAllTimers();
   state.cardResultCounter++;
   state.phase = 'REVEAL';
+  state.echoUnlocked = false;
   state.echoInput = '';
+
+  // LOCK the keypad & echo UI until the failure speech sequence finishes!
+  setKeypadLocked(true);
 
   const card = state.currentCard;
   state.streak = 0;
@@ -1040,7 +1166,6 @@ function triggerCardFlipAndRequeue({ bannerText, reprimandSpeech }) {
     saveStats();
   }
 
-  // Schedule retry according to settings.retryMode
   const retrySummaryText = scheduleMissedCardRetry(card);
   updateHudStats();
 
@@ -1050,8 +1175,10 @@ function triggerCardFlipAndRequeue({ bannerText, reprimandSpeech }) {
     document.body.classList.remove('penalty-flash');
   }, 500);
 
-  // 2. Populate Card Back: Equation, Twin Fact, Mental Math Trick, and Active Echo Prompt
+  // 2. Populate Card Back: Proximity Banner, Equation, Twin Fact, Mental Trick, Locked Echo Box
+  dom.revealBanner.className = `reveal-banner ${tierClass || ''}`;
   dom.revealBanner.textContent = bannerText;
+
   if (card.qType === 'missing_factor') {
     dom.revealEquation.textContent = `${card.a} × [${card.b}] = ${card.product}`;
   } else {
@@ -1074,81 +1201,67 @@ function triggerCardFlipAndRequeue({ bannerText, reprimandSpeech }) {
     dom.revealTrickBox.classList.add('hidden');
   }
 
-  // Active Echo box setup
-  if (settings.requireActiveEcho) {
-    dom.echoPromptBox.classList.remove('hidden');
-    dom.echoPromptText.textContent = `🎙️ Say or type "${card.targetAnswer}" to lock it in!`;
-    dom.echoInputPreview.textContent = `Listening right after voice finishes...`;
-  } else {
-    dom.echoPromptBox.classList.add('hidden');
-  }
+  // Show LOCKED Echo state while the failure sequence is being spoken
+  dom.echoPromptBox.classList.remove('hidden', 'listening');
+  dom.echoPromptBox.classList.add('locked');
+  dom.echoPromptText.textContent = `🔒 Listen closely to the answer...`;
+  dom.echoInputPreview.textContent = `Unlocks as soon as the voice finishes`;
 
   dom.revealDetail.textContent = retrySummaryText;
   dom.flashcard.classList.add('flipped');
 
-  // 3. Speak the reprimand + equation (+ mental trick if enabled)
+  // 3. Speak the full failure sequence: proximity feedback + equation (+ mental trick if enabled)
   let fullSpeech = `${reprimandSpeech} ${card.a} times ${card.b} is ${card.product}!`;
   if (settings.speakTrick) {
     fullSpeech += ` ${trick.speech}`;
   }
+  fullSpeech += ` Now say or type ${card.targetAnswer}.`;
 
   const revealCardToken = state.cardResultCounter;
-  const revealOpenedAt = performance.now();
 
   speakText(fullSpeech, () => {
     if (state.phase !== 'REVEAL' || state.cardResultCounter !== revealCardToken) return;
 
-    // If Active Echo is ON, engage the microphone so they say/type the answer to advance!
-    if (settings.requireActiveEcho) {
-      dom.echoInputPreview.textContent = `Waiting for "${card.targetAnswer}" (say it or type it)...`;
-      if (settings.autoMic) {
-        startListeningSafely();
-      }
-      return;
-    }
+    // UNLOCK the UI so the user can ONLY advance by speaking or typing card.targetAnswer!
+    state.echoUnlocked = true;
+    setKeypadLocked(false);
+    dom.echoPromptBox.classList.remove('locked');
+    dom.echoPromptText.textContent = `🎙️ Say or type "${card.targetAnswer}" to advance!`;
+    dom.echoInputPreview.textContent = `Waiting for "${card.targetAnswer}"...`;
 
-    // Otherwise, use the configured revealHoldMs timer (0 = manual tap only)
-    if (settings.revealHoldMs > 0) {
-      const elapsed = performance.now() - revealOpenedAt;
-      const postSpeechHoldMs = Math.max(3600, Math.round(settings.revealHoldMs * 0.55));
-      const waitMs = Math.max(postSpeechHoldMs, settings.revealHoldMs - elapsed);
-      state.revealAutoAdvanceId = setTimeout(() => {
-        if (state.phase === 'REVEAL' && state.cardResultCounter === revealCardToken) {
-          loadNextCard();
-        }
-      }, waitMs);
+    if (settings.autoMic) {
+      startListeningSafely();
     }
   });
 }
 
 function completeActiveEcho() {
-  if (state.phase !== 'REVEAL' || !state.currentCard) return;
+  if (state.phase !== 'REVEAL' || !state.echoUnlocked || !state.currentCard) return;
   clearAllTimers();
   state.cardResultCounter++;
+  state.echoUnlocked = false;
 
   const target = state.currentCard.targetAnswer;
   dom.echoPromptText.textContent = `✅ Locked in: ${target}!`;
-  dom.echoInputPreview.textContent = `Moving to next card...`;
+  dom.echoInputPreview.textContent = `Good job! Moving to next card...`;
 
   document.body.classList.add('success-flash');
   setTimeout(() => document.body.classList.remove('success-flash'), 240);
 
   setTimeout(() => {
     loadNextCard();
-  }, 380);
+  }, 360);
 }
 
 /* ==========================================================================
-   KEYPAD & KEYBOARD INPUT (WORKS FOR BOTH QUESTION & ACTIVE ECHO)
+   KEYPAD & KEYBOARD INPUT (RESPECTS UI LOCK ON REVEAL)
    ========================================================================== */
 
 function handleKeypadInput(key) {
   // 1. If card is flipped on REVEAL screen
   if (state.phase === 'REVEAL' && state.currentCard) {
-    if (!settings.requireActiveEcho) {
-      if (key === 'enter') loadNextCard();
-      return;
-    }
+    // Strictly ignore all keypad/keyboard presses until the failure speech sequence finishes!
+    if (!state.echoUnlocked) return;
 
     const target = state.currentCard.targetAnswer;
     const targetStr = String(target);
@@ -1166,7 +1279,7 @@ function handleKeypadInput(key) {
         completeActiveEcho();
       } else {
         state.echoInput = '';
-        dom.echoInputPreview.textContent = `Type "${target}" to lock it in!`;
+        dom.echoInputPreview.textContent = `Type "${target}" to advance!`;
       }
       return;
     }
@@ -1179,8 +1292,8 @@ function handleKeypadInput(key) {
       } else if (state.echoInput.length >= targetStr.length) {
         setTimeout(() => {
           state.echoInput = '';
-          if (state.phase === 'REVEAL') {
-            dom.echoInputPreview.textContent = `Not quite — type "${target}"!`;
+          if (state.phase === 'REVEAL' && state.echoUnlocked) {
+            dom.echoInputPreview.textContent = `Type "${target}" to unlock next card!`;
           }
         }, 250);
       }
@@ -1274,7 +1387,7 @@ function finishRoundVictory() {
     dom.missedReviewBox.classList.add('hidden');
   }
 
-  speakText(`Gauntlet complete! You conquered ${state.targetCount} cards with ${firstTryPct} percent first try accuracy!`);
+  speakText(`Awesome work! Gauntlet complete! You conquered ${state.targetCount} cards with ${firstTryPct} percent first try accuracy!`);
 }
 
 function showScreen(name) {
@@ -1289,7 +1402,6 @@ function showScreen(name) {
 
 function clearAllTimers() {
   clearInterval(state.timerIntervalId);
-  clearTimeout(state.revealAutoAdvanceId);
   clearTimeout(state.pendingWrongNumberTimerId);
 }
 
@@ -1353,24 +1465,20 @@ function renderFactorToggles() {
 }
 
 function syncLobbyControlsUI() {
-  // Timer Per Card buttons on Lobby
   document.querySelectorAll('#timer-size-control .seg-btn').forEach(btn => {
     const t = parseInt(btn.dataset.timer, 10);
     btn.classList.toggle('active', t === settings.timerSeconds);
   });
 
-  // Round size buttons
   document.querySelectorAll('#round-size-control .seg-btn').forEach(btn => {
     const sz = parseInt(btn.dataset.size, 10);
     btn.classList.toggle('active', sz === settings.roundSize);
   });
 
-  // Question mode buttons
   document.querySelectorAll('#question-mode-control .seg-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.qmode === settings.questionMode);
   });
 
-  // Preset chips
   document.querySelectorAll('.preset-row .chip-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.preset === settings.preset);
   });
@@ -1379,8 +1487,8 @@ function syncLobbyControlsUI() {
   dom.activeTablesLabel.textContent = `(${eligibleCount} facts in pool)`;
 
   // Lobby Feature Pills
-  dom.pillEcho.classList.toggle('active', settings.requireActiveEcho);
-  dom.pillEcho.textContent = `🗣️ Echo: ${settings.requireActiveEcho ? 'ON' : 'OFF'}`;
+  dom.pillEcho.classList.add('active');
+  dom.pillEcho.textContent = `🔒 Must Echo Answer`;
 
   dom.pillTricks.classList.toggle('active', settings.showTrick);
   dom.pillTricks.textContent = `💡 Tricks: ${settings.showTrick ? 'ON' : 'OFF'}`;
@@ -1396,8 +1504,7 @@ function syncLobbyControlsUI() {
 
   // Settings Modal Controls
   dom.settingTimer.value = String(settings.timerSeconds);
-  dom.settingActiveEcho.checked = settings.requireActiveEcho;
-  dom.settingRevealHold.value = String(settings.revealHoldMs);
+  if (dom.settingSpeakPraise) dom.settingSpeakPraise.checked = settings.speakPraise;
   dom.settingRetryMode.value = settings.retryMode;
   dom.settingQuestionMode.value = settings.questionMode;
   dom.settingShowTrick.checked = settings.showTrick;
@@ -1467,12 +1574,6 @@ function bindEvents() {
   });
 
   // Lobby Quick Feature Pills
-  dom.pillEcho.addEventListener('click', () => {
-    settings.requireActiveEcho = !settings.requireActiveEcho;
-    saveSettings();
-    syncLobbyControlsUI();
-  });
-
   dom.pillTricks.addEventListener('click', () => {
     settings.showTrick = !settings.showTrick;
     saveSettings();
@@ -1487,7 +1588,7 @@ function bindEvents() {
     syncLobbyControlsUI();
   });
 
-  // Front Hint Button (shows the stepping-stone mental trick without flipping!)
+  // Front Hint Button
   document.getElementById('btn-front-hint').addEventListener('click', () => {
     if (state.phase === 'QUESTION' && state.currentCard) {
       const trick = getMentalMathTrick(state.currentCard.a, state.currentCard.b);
@@ -1496,19 +1597,10 @@ function bindEvents() {
     }
   });
 
-  // Flip / Show Answer button on card front
+  // I Don't Know / Flip button on card front (still locks UI & requires echoing the answer!)
   document.getElementById('btn-flip-giveup').addEventListener('click', () => {
     if (state.phase === 'QUESTION') {
       handleWrongAnswer('', 'flip');
-    }
-  });
-
-  // Next Card button on card back
-  document.getElementById('btn-next-after-flip').addEventListener('click', () => {
-    if (state.phase === 'REVEAL') {
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-      isSpeakingTTS = false;
-      loadNextCard();
     }
   });
 
@@ -1518,7 +1610,7 @@ function bindEvents() {
     settings.autoMic = !settings.autoMic;
     saveSettings();
     syncLobbyControlsUI();
-    if (settings.autoMic && (state.phase === 'QUESTION' || state.phase === 'REVEAL')) {
+    if (settings.autoMic && (state.phase === 'QUESTION' || (state.phase === 'REVEAL' && state.echoUnlocked))) {
       startListeningSafely();
     } else {
       stopListeningSafely();
@@ -1585,16 +1677,12 @@ function bindEvents() {
     saveSettings();
     syncLobbyControlsUI();
   });
-  dom.settingActiveEcho.addEventListener('change', () => {
-    settings.requireActiveEcho = dom.settingActiveEcho.checked;
-    saveSettings();
-    syncLobbyControlsUI();
-  });
-  dom.settingRevealHold.addEventListener('change', () => {
-    settings.revealHoldMs = parseInt(dom.settingRevealHold.value, 10);
-    saveSettings();
-    syncLobbyControlsUI();
-  });
+  if (dom.settingSpeakPraise) {
+    dom.settingSpeakPraise.addEventListener('change', () => {
+      settings.speakPraise = dom.settingSpeakPraise.checked;
+      saveSettings();
+    });
+  }
   dom.settingRetryMode.addEventListener('change', () => {
     settings.retryMode = dom.settingRetryMode.value;
     saveSettings();
@@ -1624,7 +1712,7 @@ function bindEvents() {
     settings.autoMic = dom.settingMic.checked;
     saveSettings();
     syncLobbyControlsUI();
-    if (state.phase === 'QUESTION' || state.phase === 'REVEAL') {
+    if (state.phase === 'QUESTION' || (state.phase === 'REVEAL' && state.echoUnlocked)) {
       if (settings.autoMic) startListeningSafely();
       else stopListeningSafely();
     }
@@ -1667,7 +1755,7 @@ function bindEvents() {
 // Register Network-First Service Worker so refreshing the phone ALWAYS gets the newest push
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=1.3').then((reg) => {
+    navigator.serviceWorker.register('sw.js?v=1.4').then((reg) => {
       reg.update().catch(() => {});
     }).catch(() => {});
   });

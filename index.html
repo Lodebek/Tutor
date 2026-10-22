@@ -9,7 +9,7 @@
   <title>Multiplication Gauntlet</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
-  <link rel="stylesheet" href="style.css?v=1.3" />
+  <link rel="stylesheet" href="style.css?v=1.4" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -19,7 +19,7 @@
         <div class="brand-title">
           <span class="bolt-icon">⚡</span>
           <h1>GAUNTLET</h1>
-          <span id="app-version" class="version-badge" title="Tap to force update">v1.3 ↻</span>
+          <span id="app-version" class="version-badge" title="Tap to force update">v1.4 ↻</span>
         </div>
         <div class="header-actions">
           <button id="btn-grid" class="icon-btn" type="button" aria-label="144 Mastery Grid" title="12×12 Mastery Grid">
@@ -104,8 +104,8 @@
 
           <!-- Active Learning Features Summary Pill Row -->
           <div class="active-features-bar" id="lobby-features-bar">
-            <button type="button" class="feature-pill active" id="pill-echo" title="Tap to toggle Active Echo on misses">
-              🗣️ Echo When Wrong: ON
+            <button type="button" class="feature-pill active" id="pill-echo" title="Locked until spoken & echoed">
+              🔒 Must Echo Answer
             </button>
             <button type="button" class="feature-pill active" id="pill-tricks" title="Tap to toggle Mental Math Tricks">
               💡 Math Tricks: ON
@@ -157,12 +157,13 @@
                   💡 Hint
                 </button>
                 <button id="btn-flip-giveup" class="skip-btn" type="button" title="Flip to see answer (counts as miss)">
-                  Flip ↻
+                  I Don't Know ↻
                 </button>
               </div>
             </div>
 
             <div class="equation-wrap">
+              <div id="praise-toast" class="praise-toast hidden">🔥 Awesome job!</div>
               <div class="equation-display">
                 <span id="slot-left" class="factor">7</span>
                 <span class="operator">×</span>
@@ -184,7 +185,7 @@
             </div>
           </div>
 
-          <!-- BACK: Flipped Answer Reveal + Mental Trick + Active Echo -->
+          <!-- BACK: Flipped Answer Reveal + Mental Trick + Locked Active Echo (NO NEXT BUTTON) -->
           <div class="card-face card-back">
             <div id="reveal-banner" class="reveal-banner">⏰ TIME'S UP!</div>
 
@@ -198,20 +199,17 @@
               <span id="reveal-trick-text">💡 Square Neighbor: (7 × 7 = 49) + 7 more = 56</span>
             </div>
 
-            <!-- Active Echo Prompt OR Timer Status -->
-            <div id="echo-prompt-box" class="echo-prompt-box">
+            <!-- Locked-then-Unlocked Active Echo Box -->
+            <div id="echo-prompt-box" class="echo-prompt-box locked">
               <div class="echo-instruction">
                 <span class="mic-dot echo-mic-dot"></span>
-                <span id="echo-prompt-text">🎙️ Say or type "56" to lock it in!</span>
+                <span id="echo-prompt-text">🔒 Listen to the answer first...</span>
               </div>
-              <div id="echo-input-preview" class="echo-input-preview">Waiting for "56"...</div>
+              <div id="echo-input-preview" class="echo-input-preview">Card locked while speaking</div>
             </div>
 
             <div class="reveal-footer-row">
               <span id="reveal-detail" class="reveal-detail">🔁 Queued for 1→3→7 spacing</span>
-              <button id="btn-next-after-flip" class="next-card-btn" type="button">
-                Next Card →
-              </button>
             </div>
           </div>
         </div>
@@ -326,23 +324,10 @@
 
           <div class="setting-row">
             <div>
-              <strong>Active Echo When Wrong</strong>
-              <p class="setting-sub">Must say or type the right answer while viewing the flipped card to advance</p>
+              <strong>Speak Compliments on Right Answers</strong>
+              <p class="setting-sub">Vary voice praise when an answer is right</p>
             </div>
-            <input type="checkbox" id="setting-active-echo" class="toggle-checkbox" checked />
-          </div>
-
-          <div class="setting-row">
-            <div>
-              <strong>Flipped Answer Hold Time</strong>
-              <p class="setting-sub">How long to display answer if Active Echo is off</p>
-            </div>
-            <select id="setting-reveal-hold" class="setting-select">
-              <option value="3500">3.5 sec (Quick)</option>
-              <option value="7000" selected>7 sec (Doubled)</option>
-              <option value="12000">12 sec (Extra Long)</option>
-              <option value="0">Manual "Next" Tap Only</option>
-            </select>
+            <input type="checkbox" id="setting-speak-praise" class="toggle-checkbox" checked />
           </div>
 
           <div class="setting-row">
@@ -431,6 +416,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.3"></script>
+  <script src="app.js?v=1.4"></script>
 </body>
 </html>
