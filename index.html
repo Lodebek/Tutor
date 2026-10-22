@@ -9,7 +9,7 @@
   <title>Multiplication Gauntlet</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
-  <link rel="stylesheet" href="style.css?v=1.2" />
+  <link rel="stylesheet" href="style.css?v=1.3" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -19,14 +19,14 @@
         <div class="brand-title">
           <span class="bolt-icon">⚡</span>
           <h1>GAUNTLET</h1>
-          <span id="app-version" class="version-badge" title="Tap to force reload">v1.2</span>
+          <span id="app-version" class="version-badge" title="Tap to force update">v1.3 ↻</span>
         </div>
         <div class="header-actions">
           <button id="btn-grid" class="icon-btn" type="button" aria-label="144 Mastery Grid" title="12×12 Mastery Grid">
             <span>📊</span>
             <span id="mastery-pct" class="btn-sublabel">0%</span>
           </button>
-          <button id="btn-settings" class="icon-btn" type="button" aria-label="Settings" title="Round & Table Settings">
+          <button id="btn-settings" class="icon-btn" type="button" aria-label="Settings" title="All Learning & Game Settings">
             <span>⚙️</span>
           </button>
         </div>
@@ -39,7 +39,7 @@
           <span id="stat-score" class="stat-value">0 / 15</span>
         </div>
         <div class="stat-pill">
-          <span class="stat-label">REMAINING</span>
+          <span class="stat-label">PILE LEFT</span>
           <span id="stat-remaining" class="stat-value">15</span>
         </div>
         <div class="stat-pill">
@@ -52,12 +52,11 @@
     <!-- START / LOBBY SCREEN -->
     <main id="screen-start" class="screen active">
       <div class="hero-card">
-        <div class="hero-badge">1 × 1 UP TO 12 × 12</div>
+        <div class="hero-top-row">
+          <div class="hero-badge">1 × 1 UP TO 12 × 12</div>
+          <button id="btn-open-settings-lobby" class="text-link-btn" type="button">⚙️ All Learning Controls</button>
+        </div>
         <h2>Multiplication Gauntlet</h2>
-        <p class="hero-desc">
-          Speak the answer out loud or punch it in on the keypad.
-          Miss it or run out of time and the card flips, calls you out, and goes back in the pile until you nail it.
-        </p>
 
         <div class="quick-config">
           <div class="config-group">
@@ -72,24 +71,48 @@
           </div>
 
           <div class="config-group">
-            <label for="round-size-select">Cards This Round</label>
+            <label>Cards This Round</label>
             <div class="segmented-control" id="round-size-control">
               <button type="button" class="seg-btn" data-size="10">10</button>
               <button type="button" class="seg-btn active" data-size="15">15</button>
               <button type="button" class="seg-btn" data-size="20">20</button>
-              <button type="button" class="seg-btn" data-size="50">50</button>
-              <button type="button" class="seg-btn" data-size="144">All 144</button>
+              <button type="button" class="seg-btn" data-size="36">36</button>
+              <button type="button" class="seg-btn" data-size="144">All</button>
             </div>
           </div>
 
           <div class="config-group">
-            <label>Focus Tables <span id="active-tables-label" class="label-hint">(1× to 12× — 144 facts)</span></label>
-            <div class="preset-row">
+            <label>Question Mode</label>
+            <div class="segmented-control seg-3" id="question-mode-control">
+              <button type="button" class="seg-btn active" data-qmode="product">7 × 8 = ?</button>
+              <button type="button" class="seg-btn" data-qmode="mixed">Mixed Family</button>
+              <button type="button" class="seg-btn" data-qmode="missing_factor">7 × ? = 56</button>
+            </div>
+          </div>
+
+          <div class="config-group">
+            <label>Focus Deck <span id="active-tables-label" class="label-hint">(144 facts)</span></label>
+            <div class="preset-row preset-grid-3">
               <button type="button" class="chip-btn active" data-preset="all">All (1–12)</button>
+              <button type="button" class="chip-btn" data-preset="true36">True 36 Pairs</button>
+              <button type="button" class="chip-btn" data-preset="boss">🔥 Boss 15</button>
               <button type="button" class="chip-btn" data-preset="core">Core (3–12)</button>
               <button type="button" class="chip-btn" data-preset="hard">Hard (6–12)</button>
               <button type="button" class="chip-btn" data-preset="weak">Needs Work</button>
             </div>
+          </div>
+
+          <!-- Active Learning Features Summary Pill Row -->
+          <div class="active-features-bar" id="lobby-features-bar">
+            <button type="button" class="feature-pill active" id="pill-echo" title="Tap to toggle Active Echo on misses">
+              🗣️ Echo When Wrong: ON
+            </button>
+            <button type="button" class="feature-pill active" id="pill-tricks" title="Tap to toggle Mental Math Tricks">
+              💡 Math Tricks: ON
+            </button>
+            <button type="button" class="feature-pill active" id="pill-spacing" title="Tap to cycle Retry Spacing">
+              🔁 1→3→7 Spacing
+            </button>
           </div>
         </div>
 
@@ -111,7 +134,7 @@
 
     <!-- GAMEPLAY SCREEN -->
     <main id="screen-game" class="screen">
-      <!-- 20-Second Countdown Bar -->
+      <!-- Countdown Bar -->
       <div class="timer-container">
         <div class="timer-header">
           <span id="timer-status-text" class="timer-label">TIME REMAINING</span>
@@ -129,17 +152,26 @@
           <div class="card-face card-front">
             <div class="card-top-meta">
               <span id="card-tag" class="card-tag">NEW CARD</span>
-              <button id="btn-flip-giveup" class="skip-btn" type="button" title="Flip to see answer (counts as miss)">
-                Flip / Show Answer ↻
-              </button>
+              <div class="card-top-right">
+                <button id="btn-front-hint" class="skip-btn" type="button" title="Show stepping-stone mental trick">
+                  💡 Hint
+                </button>
+                <button id="btn-flip-giveup" class="skip-btn" type="button" title="Flip to see answer (counts as miss)">
+                  Flip ↻
+                </button>
+              </div>
             </div>
 
-            <div class="equation-display">
-              <span id="factor-a" class="factor">7</span>
-              <span class="operator">×</span>
-              <span id="factor-b" class="factor">8</span>
-              <span class="equals">=</span>
-              <span id="answer-slot" class="answer-slot">?</span>
+            <div class="equation-wrap">
+              <div class="equation-display">
+                <span id="slot-left" class="factor">7</span>
+                <span class="operator">×</span>
+                <span id="slot-mid" class="factor">8</span>
+                <span class="equals">=</span>
+                <span id="slot-right" class="answer-slot">?</span>
+              </div>
+              <div id="front-twin-badge" class="twin-badge">⇄ Same as 8 × 7</div>
+              <div id="front-hint-box" class="front-hint-box hidden"></div>
             </div>
 
             <!-- Live Microphone Status & Transcript -->
@@ -152,15 +184,35 @@
             </div>
           </div>
 
-          <!-- BACK: Flipped Answer Reveal -->
+          <!-- BACK: Flipped Answer Reveal + Mental Trick + Active Echo -->
           <div class="card-face card-back">
             <div id="reveal-banner" class="reveal-banner">⏰ TIME'S UP!</div>
-            <div class="reveal-subtitle">MEMORIZE THIS FACT:</div>
-            <div id="reveal-equation" class="reveal-equation">7 × 8 = 56</div>
-            <div id="reveal-detail" class="reveal-detail">Added back to your round pile!</div>
-            <button id="btn-next-after-flip" class="next-card-btn" type="button">
-              Got It — Next Card →
-            </button>
+
+            <div class="reveal-equation-group">
+              <div id="reveal-equation" class="reveal-equation">7 × 8 = 56</div>
+              <div id="reveal-twin" class="reveal-twin">⇄ Twin Fact: 8 × 7 = 56 &nbsp;|&nbsp; 56 ÷ 7 = 8</div>
+            </div>
+
+            <!-- Stepping-Stone Mental Math Trick -->
+            <div id="reveal-trick-box" class="reveal-trick-box">
+              <span id="reveal-trick-text">💡 Square Neighbor: (7 × 7 = 49) + 7 more = 56</span>
+            </div>
+
+            <!-- Active Echo Prompt OR Timer Status -->
+            <div id="echo-prompt-box" class="echo-prompt-box">
+              <div class="echo-instruction">
+                <span class="mic-dot echo-mic-dot"></span>
+                <span id="echo-prompt-text">🎙️ Say or type "56" to lock it in!</span>
+              </div>
+              <div id="echo-input-preview" class="echo-input-preview">Waiting for "56"...</div>
+            </div>
+
+            <div class="reveal-footer-row">
+              <span id="reveal-detail" class="reveal-detail">🔁 Queued for 1→3→7 spacing</span>
+              <button id="btn-next-after-flip" class="next-card-btn" type="button">
+                Next Card →
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -213,12 +265,12 @@
           </div>
           <div class="v-stat">
             <span class="v-stat-val" id="v-retries">0</span>
-            <span class="v-stat-lbl">Re-Queued Misses</span>
+            <span class="v-stat-lbl">Spacing Checks</span>
           </div>
         </div>
 
         <div id="missed-review-box" class="missed-review-box hidden">
-          <h3>Had to Re-Drill This Round:</h3>
+          <h3>Drilled &amp; Conquered This Round:</h3>
           <div id="missed-chips" class="missed-chips"></div>
         </div>
 
@@ -239,7 +291,7 @@
         <div class="grid-legend">
           <span class="legend-item"><i class="dot mastered"></i> Mastered</span>
           <span class="legend-item"><i class="dot learning"></i> Learning</span>
-          <span class="legend-item"><i class="dot struggling"></i> Missed / Needs Drill</span>
+          <span class="legend-item"><i class="dot struggling"></i> Needs Drill</span>
           <span class="legend-item"><i class="dot unseen"></i> Unseen</span>
         </div>
         <div id="matrix-container" class="matrix-container"></div>
@@ -249,11 +301,11 @@
       </div>
     </div>
 
-    <!-- SETTINGS MODAL -->
+    <!-- SETTINGS MODAL (ALL LEARNING & GAME CONTROLS) -->
     <div id="modal-settings" class="modal-backdrop hidden" role="dialog" aria-modal="true">
       <div class="modal-sheet">
         <div class="modal-header">
-          <h2>Gauntlet Settings</h2>
+          <h2>Learning &amp; Gauntlet Controls</h2>
           <button id="btn-close-settings" class="close-btn" type="button">✕</button>
         </div>
 
@@ -274,8 +326,78 @@
 
           <div class="setting-row">
             <div>
+              <strong>Active Echo When Wrong</strong>
+              <p class="setting-sub">Must say or type the right answer while viewing the flipped card to advance</p>
+            </div>
+            <input type="checkbox" id="setting-active-echo" class="toggle-checkbox" checked />
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Flipped Answer Hold Time</strong>
+              <p class="setting-sub">How long to display answer if Active Echo is off</p>
+            </div>
+            <select id="setting-reveal-hold" class="setting-select">
+              <option value="3500">3.5 sec (Quick)</option>
+              <option value="7000" selected>7 sec (Doubled)</option>
+              <option value="12000">12 sec (Extra Long)</option>
+              <option value="0">Manual "Next" Tap Only</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Missed Card Retry Spacing</strong>
+              <p class="setting-sub">How missed cards are re-tested in the round</p>
+            </div>
+            <select id="setting-retry-mode" class="setting-select">
+              <option value="expanding" selected>1 → 3 → 7 Expanding Ladder</option>
+              <option value="immediate">1 Card Later (Single Retry)</option>
+              <option value="standard">2–4 Cards Later (Classic)</option>
+              <option value="off">Off (Don't Re-Queue)</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Question Style (Fact Families)</strong>
+              <p class="setting-sub">Test product only or missing factors (7 × ? = 56)</p>
+            </div>
+            <select id="setting-question-mode" class="setting-select">
+              <option value="product" selected>Standard (7 × 8 = ?)</option>
+              <option value="mixed">Mixed (7 × 8 = ? &amp; 7 × ? = 56)</option>
+              <option value="missing_factor">Missing Factor (7 × ? = 56)</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Show Mental Math Tricks (💡)</strong>
+              <p class="setting-sub">Show stepping-stone breakdown on flipped cards</p>
+            </div>
+            <input type="checkbox" id="setting-show-trick" class="toggle-checkbox" checked />
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Speak Mental Trick Out Loud</strong>
+              <p class="setting-sub">Read the stepping-stone trick via voice on misses</p>
+            </div>
+            <input type="checkbox" id="setting-speak-trick" class="toggle-checkbox" />
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Show Commutative Twin (8 × 7)</strong>
+              <p class="setting-sub">Remind that 7 × 8 and 8 × 7 are the same fact</p>
+            </div>
+            <input type="checkbox" id="setting-show-twin" class="toggle-checkbox" checked />
+          </div>
+
+          <div class="setting-row">
+            <div>
               <strong>Auto-Listen Microphone</strong>
-              <p class="setting-sub">Automatically listen for spoken numbers on every card</p>
+              <p class="setting-sub">Automatically listen for spoken numbers</p>
             </div>
             <input type="checkbox" id="setting-mic" class="toggle-checkbox" checked />
           </div>
@@ -291,7 +413,7 @@
           <div class="setting-row">
             <div>
               <strong>Auto-Check Keypad on Exact Match</strong>
-              <p class="setting-sub">Immediately accept typed digits when they match the answer</p>
+              <p class="setting-sub">Immediately accept typed digits when they match</p>
             </div>
             <input type="checkbox" id="setting-auto-keypad" class="toggle-checkbox" checked />
           </div>
@@ -309,6 +431,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=1.2"></script>
+  <script src="app.js?v=1.3"></script>
 </body>
 </html>
