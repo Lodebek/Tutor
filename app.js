@@ -755,15 +755,19 @@ function triggerCardFlipAndRequeue({ bannerText, reprimandSpeech }) {
   // 3. Speak the reprimand + the full equation out loud so they memorize it
   const fullSpeech = `${reprimandSpeech} ${card.a} times ${card.b} is ${card.product}!`;
   const revealCardToken = state.cardResultCounter;
+  const revealOpenedAt = performance.now();
+  const minTotalRevealMs = 6800; // Guarantee at least ~7 seconds total on the flipped answer
+  const postSpeechHoldMs = 3600; // Double the post-speech reading pause (was 1600ms)
 
   speakText(fullSpeech, () => {
     if (state.phase !== 'REVEAL' || state.cardResultCounter !== revealCardToken) return;
-    // Give them 1.6s after speech ends to absorb the visual equation, then advance automatically
+    const elapsed = performance.now() - revealOpenedAt;
+    const waitMs = Math.max(postSpeechHoldMs, minTotalRevealMs - elapsed);
     state.revealAutoAdvanceId = setTimeout(() => {
       if (state.phase === 'REVEAL' && state.cardResultCounter === revealCardToken) {
         loadNextCard();
       }
-    }, 1600);
+    }, waitMs);
   });
 }
 
