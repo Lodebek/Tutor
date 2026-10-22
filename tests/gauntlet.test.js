@@ -211,7 +211,7 @@ describe('6. Proximity Coaching & Mental Math Tricks', () => {
   });
 
   it('returns mental math decomposition tricks and single-source APP_VERSION', () => {
-    assert.equal(APP_VERSION, 'v1.6');
+    assert.equal(APP_VERSION, 'v1.7');
     const trick = getMentalMathTrick(7, 8);
     assert.ok(trick.text.length > 0);
     assert.ok(trick.speech.length > 0);

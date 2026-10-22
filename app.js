@@ -1,16 +1,15 @@
 /**
- * Multiplication Gauntlet v1.6 — Research-Backed Learning & Speed Engine
- * Fixes & Upgrades in v1.6:
- * 1. Voice Final-Answer Confirmation Loop: Pauses question timer as soon as a spoken number is heard,
- *    asks "Is your final answer X?", accepts "Yes" / repeating X / saying a corrected number / "No",
- *    and auto-submits X after a 10-second confirmation countdown if no further input is given.
- * 2. Removed homophones (to/too/for/won/free/ate/oh) from WORD_TO_NUM to prevent false answers on filler speech.
- * 3. Word + digit question-echo stripping ("seven times eight is...", partial "seven times...").
- * 4. Commutative fact mastery synchronization (mastering 7×8 credits 8×7 across all decks & 12×12 grid).
- * 5. TTS active-speaking poll + 250ms acoustic tail buffer before mic unlock.
+ * Multiplication Gauntlet v1.7 — Research-Backed Learning & Speed Engine
+ * Fixes & Upgrades in v1.7:
+ * 1. Fixed Android microphone lockout: removed 15s speechSynthesis.speaking poll hang,
+ *    ensured clearAllTimers() always resets isSpeakingTTS = false with monotonic ttsSeq token,
+ *    added automatic 220ms retry on recognition.start(), and synced .listening indicator across all phases.
+ * 2. Fixed mobile PWA viewport & keypad layout so the 4th keypad row (CLR, 0, CHECK) is always 100% visible.
+ * 3. Voice Final-Answer Confirmation Loop: Pauses question timer as soon as a spoken number is heard,
+ *    asks "Is your final answer X?", and auto-submits X after a 10-second confirmation countdown.
  */
 
-const APP_VERSION = 'v1.6';
+const APP_VERSION = 'v1.7';
 const CONFIRM_TIMEOUT_MS = 10000;
 const STORAGE_KEY_STATS = 'gauntlet_144_stats_v1';
 const STORAGE_KEY_SETTINGS = 'gauntlet_settings_v2';
@@ -760,7 +759,11 @@ if (typeof document !== 'undefined') {
     timerRemainingMs: 20000,
     timerIntervalId: null,
     pendingWrongNumberTimerId: null,
-    ttsPollIntervalId: null,
+    ttsSafetyTimerId: null,
+    micRetryTimerId: null,
+    ttsSeq: 0,
+    speechResultFloorIdx: 0,
+    latestResultsLength: 0,
     cardResultCounter: 0
   };
 
@@ -1003,6 +1006,21 @@ if (typeof document !== 'undefined') {
     );
   }
 
+  function syncListeningIndicators(active, customLabel) {
+    const isListening = Boolean(active && isVoicePhaseActive() && !isSpeakingTTS);
+    dom.voiceBar.classList.toggle('listening', isListening);
+    if (dom.voiceConfirmBox) {
+      dom.voiceConfirmBox.classList.toggle('listening', isListening && state.phase === 'CONFIRM_VOICE');
+    }
+    dom.echoPromptBox.classList.toggle('listening', isListening && state.phase === 'REVEAL' && state.echoUnlocked);
+
+    if (customLabel) {
+      dom.micStatusLabel.textContent = customLabel;
+    } else if (isListening) {
+      dom.micStatusLabel.textContent = 'Listening for number...';
+    }
+  }
+
   function initSpeechRecognition() {
     if (!SpeechRecognitionAPI) {
       dom.micStatusLabel.textContent = 'Voice unavailable on this browser';
@@ -1018,14 +1036,13 @@ if (typeof document !== 'undefined') {
 
     recognition.onstart = () => {
       isRecognitionActive = true;
-      if (state.phase === 'QUESTION') {
-        updateVoiceBarUI(true, 'Listening for number...');
-      } else if (state.phase === 'REVEAL' && state.echoUnlocked) {
-        dom.echoPromptBox.classList.add('listening');
-      }
+      state.speechResultFloorIdx = 0;
+      state.latestResultsLength = 0;
+      syncListeningIndicators(true, 'Listening for number...');
     };
 
     recognition.onresult = (event) => {
+      state.latestResultsLength = event.results.length;
       if (!state.currentCard || isSpeakingTTS) return;
       if (!isVoicePhaseActive()) return;
 
@@ -1034,9 +1051,10 @@ if (typeof document !== 'undefined') {
       let isFinalResult = false;
       const allCandidates = [];
 
-      // Build combined primary transcript across segments in case of paused speech ("fifty" ... "six")
+      // Only combine segments from the current card/phase (at or after speechResultFloorIdx)
+      const startSegIdx = Math.max(0, Math.min(state.speechResultFloorIdx, event.resultIndex));
       const primarySegments = [];
-      for (let i = 0; i < event.results.length; i++) {
+      for (let i = startSegIdx; i < event.results.length; i++) {
         if (event.results[i][0]) {
           primarySegments.push(event.results[i][0].transcript.trim());
         }
@@ -1081,7 +1099,7 @@ if (typeof document !== 'undefined') {
       // CASE B: Voice Final-Answer Confirmation Loop (CONFIRM_VOICE phase)
       if (state.phase === 'CONFIRM_VOICE') {
         const decision = parseVoiceConfirmationResponse(
-          fullPrimaryTranscript || latestTranscript,
+          latestTranscript || fullPrimaryTranscript,
           state.confirmCandidate,
           state.currentCard
         );
@@ -1112,7 +1130,6 @@ if (typeof document !== 'undefined') {
 
         if (decision.action === 'cancel') {
           clearTimeout(state.pendingWrongNumberTimerId);
-          // Brief 450ms settle in case child is saying "No, fifty six"
           state.pendingWrongNumberTimerId = setTimeout(() => {
             if (state.phase === 'CONFIRM_VOICE' && state.cardResultCounter === cardToken) {
               cancelVoiceConfirmation();
@@ -1179,7 +1196,7 @@ if (typeof document !== 'undefined') {
     };
 
     recognition.onerror = (event) => {
-      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      if (event.error === 'not-allowed') {
         micPermissionDenied = true;
         updateVoiceBarUI(false, 'Mic blocked — tap to retry or use keypad');
       }
@@ -1187,7 +1204,7 @@ if (typeof document !== 'undefined') {
 
     recognition.onend = () => {
       isRecognitionActive = false;
-      dom.echoPromptBox.classList.remove('listening');
+      syncListeningIndicators(false);
 
       const shouldKeepListening =
         !micPermissionDenied &&
@@ -1196,7 +1213,8 @@ if (typeof document !== 'undefined') {
         isVoicePhaseActive();
 
       if (shouldKeepListening) {
-        setTimeout(() => {
+        clearTimeout(state.micRetryTimerId);
+        state.micRetryTimerId = setTimeout(() => {
           if (
             !isRecognitionActive &&
             !isSpeakingTTS &&
@@ -1213,19 +1231,34 @@ if (typeof document !== 'undefined') {
   }
 
   function startListeningSafely() {
+    clearTimeout(state.micRetryTimerId);
     if (!recognition || micPermissionDenied || !settings.autoMic || isSpeakingTTS) {
       updateVoiceBarUI(false, settings.autoMic ? 'Voice paused' : 'Mic off (tap to enable)');
       return;
     }
-    if (isRecognitionActive) return;
+    if (isRecognitionActive) {
+      syncListeningIndicators(true, 'Listening for number...');
+      return;
+    }
     try {
       recognition.start();
     } catch {
-      // Ignore if already active
+      // If previous recognition.abort() on Android is still winding down, retry in 220ms
+      state.micRetryTimerId = setTimeout(() => {
+        if (
+          !isRecognitionActive &&
+          !isSpeakingTTS &&
+          settings.autoMic &&
+          isVoicePhaseActive()
+        ) {
+          startListeningSafely();
+        }
+      }, 220);
     }
   }
 
   function stopListeningSafely() {
+    clearTimeout(state.micRetryTimerId);
     if (!recognition) return;
     try {
       recognition.abort();
@@ -1233,28 +1266,28 @@ if (typeof document !== 'undefined') {
       // Ignore
     }
     isRecognitionActive = false;
-    dom.echoPromptBox.classList.remove('listening');
+    syncListeningIndicators(false);
   }
 
   function updateVoiceBarUI(listening, labelText) {
-    dom.voiceBar.classList.toggle('listening', listening);
-    dom.micStatusLabel.textContent = labelText;
+    syncListeningIndicators(listening, labelText);
   }
 
   /**
-   * Speaks text via window.speechSynthesis, polling window.speechSynthesis.speaking
-   * so slow voices never unlock the mic mid-sentence, and adds a 250ms acoustic tail buffer
-   * after speech ends so the microphone never hears the phone's own speaker.
+   * Speaks text via window.speechSynthesis with a deterministic safety timer and monotonic
+   * sequence token so Android Chrome never hangs on speechSynthesis.speaking or orphans isSpeakingTTS.
    */
   function speakText(text, onDone) {
     if (!('speechSynthesis' in window)) {
+      isSpeakingTTS = false;
       if (onDone) onDone();
       return;
     }
 
+    const myTtsSeq = ++state.ttsSeq;
     isSpeakingTTS = true;
     stopListeningSafely();
-    clearInterval(state.ttsPollIntervalId);
+    clearTimeout(state.ttsSafetyTimerId);
 
     try {
       window.speechSynthesis.cancel();
@@ -1263,32 +1296,21 @@ if (typeof document !== 'undefined') {
       utterance.pitch = 1.0;
       utterance.lang = 'en-US';
 
-      const startedAt = performance.now();
       let finished = false;
-
       const finishOnce = () => {
-        if (finished) return;
+        if (finished || myTtsSeq !== state.ttsSeq) return;
         finished = true;
-        clearInterval(state.ttsPollIntervalId);
-        // 250ms acoustic tail buffer so speaker reverb dies down before mic opens
-        setTimeout(() => {
-          isSpeakingTTS = false;
-          if (onDone) onDone();
-        }, 250);
+        clearTimeout(state.ttsSafetyTimerId);
+        isSpeakingTTS = false;
+        if (onDone) onDone();
       };
 
       utterance.onend = finishOnce;
       utterance.onerror = finishOnce;
 
-      // Poll speechSynthesis.speaking so slow voices aren't cut off early, with a 15s hard cap
-      const minWaitMs = Math.max(1800, text.length * 70);
-      state.ttsPollIntervalId = setInterval(() => {
-        const elapsed = performance.now() - startedAt;
-        const stillSpeaking = window.speechSynthesis.speaking || window.speechSynthesis.pending;
-        if (elapsed >= 15000 || (elapsed >= minWaitMs && !stillSpeaking)) {
-          finishOnce();
-        }
-      }, 150);
+      // Deterministic safety fallback so mobile TTS never locks the mic if onend is dropped
+      const safetyMs = Math.min(5500, Math.max(1800, text.length * 80));
+      state.ttsSafetyTimerId = setTimeout(finishOnce, safetyMs);
 
       window.speechSynthesis.speak(utterance);
     } catch {
@@ -1329,6 +1351,7 @@ if (typeof document !== 'undefined') {
     if (!state.currentCard) return;
     clearAllTimers();
     state.cardResultCounter++;
+    state.speechResultFloorIdx = state.latestResultsLength;
     state.phase = 'CONFIRM_VOICE';
     state.confirmCandidate = candidateNum;
     state.confirmUnlocked = false;
@@ -1360,6 +1383,7 @@ if (typeof document !== 'undefined') {
     speakText(promptSpeech, () => {
       if (state.phase !== 'CONFIRM_VOICE' || state.cardResultCounter !== confirmToken) return;
       state.confirmUnlocked = true;
+      state.speechResultFloorIdx = state.latestResultsLength;
       startConfirmCountdownLoop(confirmToken);
       if (settings.autoMic) {
         startListeningSafely();
@@ -1412,6 +1436,7 @@ if (typeof document !== 'undefined') {
     if (!state.currentCard) return;
     clearAllTimers();
     state.cardResultCounter++;
+    state.speechResultFloorIdx = state.latestResultsLength;
 
     if ('speechSynthesis' in window) {
       try {
@@ -1453,6 +1478,8 @@ if (typeof document !== 'undefined') {
 
   function startGauntletRound() {
     clearAllTimers();
+    micPermissionDenied = false;
+    isSpeakingTTS = false;
     state.queue = buildRoundQueue();
     state.targetCount = state.queue.length;
     state.clearedCount = 0;
@@ -1479,6 +1506,7 @@ if (typeof document !== 'undefined') {
   function loadNextCard() {
     clearAllTimers();
     state.cardResultCounter++;
+    state.speechResultFloorIdx = state.latestResultsLength;
     state.echoUnlocked = false;
     state.confirmUnlocked = false;
     state.confirmCandidate = null;
@@ -1684,6 +1712,7 @@ if (typeof document !== 'undefined') {
   function triggerCardFlipAndRequeue({ tierClass, bannerText, reprimandSpeech }) {
     clearAllTimers();
     state.cardResultCounter++;
+    state.speechResultFloorIdx = state.latestResultsLength;
     state.phase = 'REVEAL';
     state.echoUnlocked = false;
     state.echoInput = '';
@@ -1758,6 +1787,7 @@ if (typeof document !== 'undefined') {
       if (state.phase !== 'REVEAL' || state.cardResultCounter !== revealCardToken) return;
 
       state.echoUnlocked = true;
+      state.speechResultFloorIdx = state.latestResultsLength;
       setKeypadLocked(false);
       dom.echoPromptBox.classList.remove('locked');
       dom.echoPromptText.textContent = `🎙️ Say or type "${card.targetAnswer}" to advance!`;
@@ -1946,8 +1976,11 @@ if (typeof document !== 'undefined') {
   function clearAllTimers() {
     clearInterval(state.timerIntervalId);
     clearInterval(state.confirmIntervalId);
-    clearInterval(state.ttsPollIntervalId);
+    clearTimeout(state.ttsSafetyTimerId);
     clearTimeout(state.pendingWrongNumberTimerId);
+    clearTimeout(state.micRetryTimerId);
+    state.ttsSeq++;
+    isSpeakingTTS = false;
   }
 
   function renderMasteryMatrix() {
@@ -2164,6 +2197,16 @@ if (typeof document !== 'undefined') {
       } else {
         stopListeningSafely();
         updateVoiceBarUI(false, 'Mic off (tap to enable)');
+      }
+    });
+
+    dom.echoPromptBox.addEventListener('click', () => {
+      if (state.phase === 'REVEAL' && state.echoUnlocked) {
+        micPermissionDenied = false;
+        settings.autoMic = true;
+        saveSettings();
+        syncLobbyControlsUI();
+        startListeningSafely();
       }
     });
 
