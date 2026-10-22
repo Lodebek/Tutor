@@ -697,7 +697,7 @@ function handleTimeoutPenalty() {
   if (state.phase !== 'QUESTION' || !state.currentCard) return;
   const phrase = TIMEOUT_REPRIMANDS[Math.floor(Math.random() * TIMEOUT_REPRIMANDS.length)];
   triggerCardFlipAndRequeue({
-    bannerText: "⏰ TIME'S UP! (20s EXPIRED)",
+    bannerText: `⏰ TIME'S UP! (${settings.timerSeconds}s EXPIRED)`,
     reprimandSpeech: phrase
   });
 }
@@ -945,6 +945,12 @@ function renderFactorToggles() {
 }
 
 function syncLobbyControlsUI() {
+  // Timer Per Card buttons on Lobby
+  document.querySelectorAll('#timer-size-control .seg-btn').forEach(btn => {
+    const t = parseInt(btn.dataset.timer, 10);
+    btn.classList.toggle('active', t === settings.timerSeconds);
+  });
+
   // Round size buttons
   document.querySelectorAll('#round-size-control .seg-btn').forEach(btn => {
     const sz = parseInt(btn.dataset.size, 10);
@@ -982,6 +988,15 @@ function bindEvents() {
     stopListeningSafely();
     state.phase = 'LOBBY';
     showScreen('LOBBY');
+  });
+
+  // Timer Per Card Selector (Lobby)
+  document.querySelectorAll('#timer-size-control .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      settings.timerSeconds = parseInt(btn.dataset.timer, 10);
+      saveSettings();
+      syncLobbyControlsUI();
+    });
   });
 
   // Round Size Selector
@@ -1091,6 +1106,7 @@ function bindEvents() {
   dom.settingTimer.addEventListener('change', () => {
     settings.timerSeconds = parseInt(dom.settingTimer.value, 10) || 20;
     saveSettings();
+    syncLobbyControlsUI();
   });
   dom.settingMic.addEventListener('change', () => {
     settings.autoMic = dom.settingMic.checked;

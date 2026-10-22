@@ -19,7 +19,7 @@
         <div class="brand-title">
           <span class="bolt-icon">⚡</span>
           <h1>GAUNTLET</h1>
-          <span id="app-version" class="version-badge" title="Tap to force reload">v1.0</span>
+          <span id="app-version" class="version-badge" title="Tap to force reload">v1.1</span>
         </div>
         <div class="header-actions">
           <button id="btn-grid" class="icon-btn" type="button" aria-label="144 Mastery Grid" title="12×12 Mastery Grid">
@@ -55,11 +55,22 @@
         <div class="hero-badge">1 × 1 UP TO 12 × 12</div>
         <h2>Multiplication Gauntlet</h2>
         <p class="hero-desc">
-          20 seconds per card. Speak the answer out loud or punch it in on the keypad.
+          Speak the answer out loud or punch it in on the keypad.
           Miss it or run out of time and the card flips, calls you out, and goes back in the pile until you nail it.
         </p>
 
         <div class="quick-config">
+          <div class="config-group">
+            <label>Time Per Card</label>
+            <div class="segmented-control" id="timer-size-control">
+              <button type="button" class="seg-btn" data-timer="10">10s</button>
+              <button type="button" class="seg-btn" data-timer="15">15s</button>
+              <button type="button" class="seg-btn active" data-timer="20">20s</button>
+              <button type="button" class="seg-btn" data-timer="30">30s</button>
+              <button type="button" class="seg-btn" data-timer="60">1m Learn</button>
+            </div>
+          </div>
+
           <div class="config-group">
             <label for="round-size-select">Cards This Round</label>
             <div class="segmented-control" id="round-size-control">
@@ -257,6 +268,7 @@
               <option value="15">15 sec (Fast)</option>
               <option value="20" selected>20 sec (Standard)</option>
               <option value="30">30 sec (Relaxed)</option>
+              <option value="60">60 sec (1 Min - Learning)</option>
             </select>
           </div>
 
