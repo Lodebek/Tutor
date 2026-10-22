@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f19" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Multiplication Gauntlet</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <!-- Top Header / HUD -->
+    <header class="hud-header">
+      <div class="brand-row">
+        <div class="brand-title">
+          <span class="bolt-icon">⚡</span>
+          <h1>GAUNTLET</h1>
+          <span id="app-version" class="version-badge" title="Tap to force reload">v1.0</span>
+        </div>
+        <div class="header-actions">
+          <button id="btn-grid" class="icon-btn" type="button" aria-label="144 Mastery Grid" title="12×12 Mastery Grid">
+            <span>📊</span>
+            <span id="mastery-pct" class="btn-sublabel">0%</span>
+          </button>
+          <button id="btn-settings" class="icon-btn" type="button" aria-label="Settings" title="Round & Table Settings">
+            <span>⚙️</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Score / Queue Progress Bar -->
+      <div id="hud-stats" class="hud-stats hidden">
+        <div class="stat-pill">
+          <span class="stat-label">CLEARED</span>
+          <span id="stat-score" class="stat-value">0 / 15</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">REMAINING</span>
+          <span id="stat-remaining" class="stat-value">15</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">STREAK</span>
+          <span id="stat-streak" class="stat-value">🔥 0</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- START / LOBBY SCREEN -->
+    <main id="screen-start" class="screen active">
+      <div class="hero-card">
+        <div class="hero-badge">1 × 1 UP TO 12 × 12</div>
+        <h2>Multiplication Gauntlet</h2>
+        <p class="hero-desc">
+          20 seconds per card. Speak the answer out loud or punch it in on the keypad.
+          Miss it or run out of time and the card flips, calls you out, and goes back in the pile until you nail it.
+        </p>
+
+        <div class="quick-config">
+          <div class="config-group">
+            <label for="round-size-select">Cards This Round</label>
+            <div class="segmented-control" id="round-size-control">
+              <button type="button" class="seg-btn" data-size="10">10</button>
+              <button type="button" class="seg-btn active" data-size="15">15</button>
+              <button type="button" class="seg-btn" data-size="20">20</button>
+              <button type="button" class="seg-btn" data-size="50">50</button>
+              <button type="button" class="seg-btn" data-size="144">All 144</button>
+            </div>
+          </div>
+
+          <div class="config-group">
+            <label>Focus Tables <span id="active-tables-label" class="label-hint">(1× to 12× — 144 facts)</span></label>
+            <div class="preset-row">
+              <button type="button" class="chip-btn active" data-preset="all">All (1–12)</button>
+              <button type="button" class="chip-btn" data-preset="core">Core (3–12)</button>
+              <button type="button" class="chip-btn" data-preset="hard">Hard (6–12)</button>
+              <button type="button" class="chip-btn" data-preset="weak">Needs Work</button>
+            </div>
+          </div>
+        </div>
+
+        <button id="btn-start-gauntlet" class="primary-cta" type="button">
+          <span>🎙️ START GAUNTLET</span>
+        </button>
+
+        <div class="mastery-summary-bar" id="lobby-mastery-bar">
+          <div class="mastery-text">
+            <span>Overall 144-Card Mastery</span>
+            <strong id="lobby-mastery-count">0 / 144 Mastered</strong>
+          </div>
+          <div class="progress-track">
+            <div id="lobby-mastery-fill" class="progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- GAMEPLAY SCREEN -->
+    <main id="screen-game" class="screen">
+      <!-- 20-Second Countdown Bar -->
+      <div class="timer-container">
+        <div class="timer-header">
+          <span id="timer-status-text" class="timer-label">TIME REMAINING</span>
+          <span id="timer-seconds" class="timer-digits">20.0s</span>
+        </div>
+        <div class="timer-bar-track">
+          <div id="timer-bar-fill" class="timer-bar-fill"></div>
+        </div>
+      </div>
+
+      <!-- 3D Flashcard Stage -->
+      <div class="card-stage">
+        <div id="flashcard" class="flashcard">
+          <!-- FRONT: Question -->
+          <div class="card-face card-front">
+            <div class="card-top-meta">
+              <span id="card-tag" class="card-tag">NEW CARD</span>
+              <button id="btn-flip-giveup" class="skip-btn" type="button" title="Flip to see answer (counts as miss)">
+                Flip / Show Answer ↻
+              </button>
+            </div>
+
+            <div class="equation-display">
+              <span id="factor-a" class="factor">7</span>
+              <span class="operator">×</span>
+              <span id="factor-b" class="factor">8</span>
+              <span class="equals">=</span>
+              <span id="answer-slot" class="answer-slot">?</span>
+            </div>
+
+            <!-- Live Microphone Status & Transcript -->
+            <div id="voice-bar" class="voice-bar listening">
+              <button id="btn-mic-toggle" class="mic-indicator-btn" type="button" title="Toggle Microphone">
+                <span class="mic-dot"></span>
+                <span id="mic-status-label">Listening for number...</span>
+              </button>
+              <div id="voice-transcript" class="voice-transcript">Say the answer out loud</div>
+            </div>
+          </div>
+
+          <!-- BACK: Flipped Answer Reveal -->
+          <div class="card-face card-back">
+            <div id="reveal-banner" class="reveal-banner">⏰ TIME'S UP!</div>
+            <div class="reveal-subtitle">MEMORIZE THIS FACT:</div>
+            <div id="reveal-equation" class="reveal-equation">7 × 8 = 56</div>
+            <div id="reveal-detail" class="reveal-detail">Added back to your round pile!</div>
+            <button id="btn-next-after-flip" class="next-card-btn" type="button">
+              Got It — Next Card →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Optional On-Screen Keypad -->
+      <section class="keypad-section">
+        <div class="keypad-header">
+          <button id="btn-toggle-keypad" class="keypad-toggle-btn" type="button">
+            <span id="keypad-toggle-label">⌨️ Hide Keypad</span>
+          </button>
+          <span class="keypad-hint">Voice is active — or tap digits below</span>
+        </div>
+
+        <div id="keypad-grid" class="keypad-grid">
+          <button type="button" class="key-btn" data-key="1">1</button>
+          <button type="button" class="key-btn" data-key="2">2</button>
+          <button type="button" class="key-btn" data-key="3">3</button>
+          <button type="button" class="key-btn" data-key="4">4</button>
+          <button type="button" class="key-btn" data-key="5">5</button>
+          <button type="button" class="key-btn" data-key="6">6</button>
+          <button type="button" class="key-btn" data-key="7">7</button>
+          <button type="button" class="key-btn" data-key="8">8</button>
+          <button type="button" class="key-btn" data-key="9">9</button>
+          <button type="button" class="key-btn key-action" data-key="clear">CLR / ⌫</button>
+          <button type="button" class="key-btn" data-key="0">0</button>
+          <button type="button" class="key-btn key-submit" data-key="enter">CHECK ✓</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- ROUND COMPLETE SCREEN -->
+    <main id="screen-victory" class="screen">
+      <div class="hero-card victory-card">
+        <div class="victory-icon">🏆</div>
+        <h2>Gauntlet Survived!</h2>
+        <p id="victory-subtitle" class="hero-desc">Every card in this round was conquered.</p>
+
+        <div class="victory-stats-grid">
+          <div class="v-stat">
+            <span class="v-stat-val" id="v-cleared">15</span>
+            <span class="v-stat-lbl">Cards Cleared</span>
+          </div>
+          <div class="v-stat">
+            <span class="v-stat-val" id="v-first-try">100%</span>
+            <span class="v-stat-lbl">First-Try Accuracy</span>
+          </div>
+          <div class="v-stat">
+            <span class="v-stat-val" id="v-avg-time">4.2s</span>
+            <span class="v-stat-lbl">Avg Speed</span>
+          </div>
+          <div class="v-stat">
+            <span class="v-stat-val" id="v-retries">0</span>
+            <span class="v-stat-lbl">Re-Queued Misses</span>
+          </div>
+        </div>
+
+        <div id="missed-review-box" class="missed-review-box hidden">
+          <h3>Had to Re-Drill This Round:</h3>
+          <div id="missed-chips" class="missed-chips"></div>
+        </div>
+
+        <div class="victory-actions">
+          <button id="btn-play-again" class="primary-cta" type="button">🔥 Run Another Round</button>
+          <button id="btn-back-lobby" class="secondary-cta" type="button">Change Settings / View Grid</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- 12x12 MASTERY GRID MODAL -->
+    <div id="modal-grid" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h2>12 × 12 Mastery Matrix (144 Facts)</h2>
+          <button id="btn-close-grid" class="close-btn" type="button">✕</button>
+        </div>
+        <div class="grid-legend">
+          <span class="legend-item"><i class="dot mastered"></i> Mastered</span>
+          <span class="legend-item"><i class="dot learning"></i> Learning</span>
+          <span class="legend-item"><i class="dot struggling"></i> Missed / Needs Drill</span>
+          <span class="legend-item"><i class="dot unseen"></i> Unseen</span>
+        </div>
+        <div id="matrix-container" class="matrix-container"></div>
+        <div class="modal-footer">
+          <button id="btn-reset-progress" class="danger-outline-btn" type="button">Reset All 144 Stats</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="modal-settings" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h2>Gauntlet Settings</h2>
+          <button id="btn-close-settings" class="close-btn" type="button">✕</button>
+        </div>
+
+        <div class="settings-body">
+          <div class="setting-row">
+            <div>
+              <strong>Timer Per Card</strong>
+              <p class="setting-sub">Countdown before timeout reprimand</p>
+            </div>
+            <select id="setting-timer" class="setting-select">
+              <option value="10">10 sec (Brutal)</option>
+              <option value="15">15 sec (Fast)</option>
+              <option value="20" selected>20 sec (Standard)</option>
+              <option value="30">30 sec (Relaxed)</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Auto-Listen Microphone</strong>
+              <p class="setting-sub">Automatically listen for spoken numbers on every card</p>
+            </div>
+            <input type="checkbox" id="setting-mic" class="toggle-checkbox" checked />
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Read Question Out Loud</strong>
+              <p class="setting-sub">Speak "7 times 8" before starting the mic</p>
+            </div>
+            <input type="checkbox" id="setting-speak-question" class="toggle-checkbox" />
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Auto-Check Keypad on Exact Match</strong>
+              <p class="setting-sub">Immediately accept typed digits when they match the answer</p>
+            </div>
+            <input type="checkbox" id="setting-auto-keypad" class="toggle-checkbox" checked />
+          </div>
+
+          <div class="setting-block">
+            <strong>Custom Table Filter (Tap to toggle factors 1–12)</strong>
+            <div id="custom-factor-toggles" class="factor-toggles-grid"></div>
+          </div>
+
+          <div class="setting-block">
+            <button id="btn-end-round" class="secondary-cta full-width" type="button">Quit Current Round to Lobby</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
