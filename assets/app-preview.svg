@@ -32,7 +32,7 @@
     <!-- Header -->
     <text x="24" y="54" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="900" fill="url(#brandGrad)" letter-spacing="1.2">⚡ GAUNTLET</text>
     <rect x="135" y="40" width="44" height="18" rx="5" fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.35)"/>
-    <text x="157" y="52" font-family="system-ui, sans-serif" font-size="10" font-weight="700" fill="#38bdf8" text-anchor="middle">v1.4 ↻</text>
+    <text x="157" y="52" font-family="system-ui, sans-serif" font-size="10" font-weight="700" fill="#38bdf8" text-anchor="middle">v1.5 ↻</text>
 
     <rect x="258" y="36" width="52" height="26" rx="8" fill="#1e293b"/>
     <text x="284" y="53" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#38bdf8" text-anchor="middle">📊 42%</text>
@@ -131,7 +131,7 @@
     <!-- Header -->
     <text x="24" y="54" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="900" fill="url(#brandGrad)" letter-spacing="1.2">⚡ GAUNTLET</text>
     <rect x="135" y="40" width="44" height="18" rx="5" fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.35)"/>
-    <text x="157" y="52" font-family="system-ui, sans-serif" font-size="10" font-weight="700" fill="#38bdf8" text-anchor="middle">v1.4 ↻</text>
+    <text x="157" y="52" font-family="system-ui, sans-serif" font-size="10" font-weight="700" fill="#38bdf8" text-anchor="middle">v1.5 ↻</text>
 
     <rect x="258" y="36" width="52" height="26" rx="8" fill="#1e293b"/>
     <text x="284" y="53" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#38bdf8" text-anchor="middle">📊 42%</text>

@@ -1,9 +1,9 @@
-const CACHE_NAME = 'gauntlet-cache-v1.4';
+const CACHE_NAME = 'gauntlet-runtime-cache';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.4',
-  './app.js?v=1.4',
+  './style.css',
+  './app.js',
   './manifest.json',
   './icon.svg'
 ];
