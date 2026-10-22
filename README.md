@@ -3,6 +3,7 @@
 [![Live Demo](https://img.shields.io/badge/Live_App-GitHub_Pages-38bdf8?style=for-the-badge&logo=github)](https://lodebek.github.io/Tutor/)
 [![Tech Stack](https://img.shields.io/badge/Stack-HTML5_%7C_CSS3_%7C_Vanilla_JS-818cf8?style=for-the-badge)](#architecture--tech-stack)
 [![Voice API](https://img.shields.io/badge/Voice-Web_Speech_API_(Zero_AI_Keys)-22c55e?style=for-the-badge)](#hands-free-voice-engine-zero-ai--zero-api-keys)
+[![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)](LICENSE)
 
 **Tutor** is a mobile-first Progressive Web App (PWA) built for rapid, high-retention skill mastery on a phone. Its flagship module, **Multiplication Gauntlet**, drills all **144 multiplication facts (`1 × 1` through `12 × 12`)** using hands-free voice recognition, strict countdown timers, 3D flashcard flips, stepping-stone mental math tricks, and research-backed active retrieval.
 
@@ -116,3 +117,14 @@ git add .
 git commit -m "Update Tutor"
 git push
 ```
+
+---
+
+## 👤 Creator & Maintainer
+
+- **John Van Straalen ([@Lodebek](https://github.com/Lodebek))** — Creator, Product Design & Architecture
+
+## ⚖️ License
+
+This project is licensed under the **[MIT License](LICENSE)** — Copyright (c) 2026 John Van Straalen ([@Lodebek](https://github.com/Lodebek)).
+
